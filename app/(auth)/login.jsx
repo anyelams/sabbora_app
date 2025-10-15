@@ -1,8 +1,6 @@
 // app/(auth)/login.jsx
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Constants from "expo-constants";
-import * as Device from "expo-device";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -146,8 +144,6 @@ export default function LoginScreen() {
         username: username,
       });
 
-      await configurarNotificacionesPush(userId || username);
-
       router.replace("/(tabs)/welcome");
     } catch (err) {
       console.error("Error en login:", err);
@@ -197,64 +193,6 @@ export default function LoginScreen() {
       setErrors({ general: errorMessage });
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const configurarNotificacionesPush = async (userIdentifier) => {
-    try {
-      if (!Device.isDevice) {
-        console.log(
-          "No es un dispositivo físico, saltando notificaciones push"
-        );
-        return;
-      }
-
-      const Notifications = await import("expo-notifications");
-
-      Notifications.setNotificationHandler({
-        handleNotification: async () => ({
-          shouldShowAlert: true,
-          shouldPlaySound: true,
-          shouldSetBadge: false,
-        }),
-      });
-
-      const { status: existingStatus } =
-        await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-
-      if (finalStatus !== "granted") {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-
-      if (finalStatus === "granted") {
-        try {
-          const pushToken = (
-            await Notifications.getExpoPushTokenAsync({
-              projectId:
-                Constants.expoConfig?.extra?.eas?.projectId || "restpaid-app",
-            })
-          ).data;
-
-          console.log("Token de notificaciones obtenido:", pushToken);
-
-          await axiosPublic.post("/notifications/register-token", {
-            userId: userIdentifier,
-            pushToken: pushToken,
-            platform: Device.osName,
-            deviceId: Constants.deviceId,
-          });
-
-          console.log("Token de notificaciones registrado exitosamente");
-        } catch (notifError) {
-          console.log("Error registrando token de notificaciones:", notifError);
-        }
-      } else {
-        console.log("Permisos de notificaciones denegados");
-      }
-    } catch (error) {
-      console.error("Error configurando notificaciones push:", error);
     }
   };
 
@@ -337,7 +275,7 @@ export default function LoginScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                onPress={() => router.push("/forgotPassword")}
+                onPress={() => router.replace("/forgotPassword")}
                 disabled={isLoading}
               >
                 <Text style={styles.forgotPasswordText}>
