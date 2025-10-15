@@ -1,4 +1,3 @@
-// app/_layout.jsx
 import {
   AntDesign,
   Feather,
@@ -9,18 +8,23 @@ import { useFonts } from "expo-font";
 import { Slot, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LogBox } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { SessionProvider, useSession } from "../context/SessionContext";
 
 SplashScreen.preventAutoHideAsync();
 
+// -------------------------
+// Inicializador de la App
+// -------------------------
 function AppInitializer({ children }) {
   const router = useRouter();
   const segments = useSegments();
   const { token, tokenEsValido } = useSession();
-  const [isNavigationReady, setIsNavigationReady] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+  const hasNavigated = useRef(false); // ⭐ Prevenir múltiples navegaciones
 
   const [fontsLoaded] = useFonts({
     RobotoBold: require("../assets/fonts/Roboto-Bold.ttf"),
@@ -34,80 +38,61 @@ function AppInitializer({ children }) {
     ...MaterialIcons.font,
   });
 
+  // Ignorar logs molestos
   useEffect(() => {
     LogBox.ignoreLogs([
-      "Support for defaultProps will be removed from function components in a future major release",
+      "Support for defaultProps will be removed",
       "Expected newLocale to be a string",
       "Possible unhandled promise rejection",
     ]);
   }, []);
 
-  // Ocultar splash screen cuando las fuentes estén listas
+  // Ocultar splash cuando se carguen las fuentes
   useEffect(() => {
-    const prepareApp = async () => {
-      if (fontsLoaded) {
-        try {
-          await SplashScreen.hideAsync();
-        } catch (error) {
-          console.error("Error ocultando splash screen:", error);
-        }
-      }
-    };
-    prepareApp();
+    if (fontsLoaded) {
+      SplashScreen.hideAsync()
+        .then(() => setIsReady(true))
+        .catch(console.error);
+    }
   }, [fontsLoaded]);
 
-  // Manejar autenticación y navegación
+  // Navegación inicial solo UNA VEZ
   useEffect(() => {
-    if (!fontsLoaded) return;
+    if (!isReady || hasNavigated.current) return;
 
-    const handleNavigation = async () => {
-      try {
-        // Verificar estado de autenticación
-        // Si el token existe Y es válido, el usuario está autenticado
-        // Si el token expiró, el interceptor de axiosPrivate lo refrescará automáticamente en el primer request
-        const isAuthenticated = token && tokenEsValido();
+    const handleInitialNavigation = () => {
+      const isAuthenticated = token && tokenEsValido();
+      const inAuthGroup = segments[0] === "(auth)";
+      const inTabsGroup = segments[0] === "(tabs)";
+      const isWelcome = segments[0] === "welcome" || segments.length === 0;
 
-        // Determinar la ruta actual
-        const inAuthGroup = segments[0] === "(auth)";
-        const inTabsGroup = segments[0] === "(tabs)";
-        const currentPath = segments.join("/") || "index";
-
-        // Lógica de navegación
-        if (isAuthenticated) {
-          // Usuario autenticado - redirigir a tabs si está en rutas públicas
-          if (
-            !inTabsGroup &&
-            (currentPath === "index" ||
-              currentPath === "welcome" ||
-              inAuthGroup)
-          ) {
-            router.replace("/(tabs)/home");
-          }
-        } else {
-          // Usuario NO autenticado
-          // Solo redirigir a welcome si está en rutas protegidas (tabs) o en index
-          if (inTabsGroup) {
-            router.replace("/welcome");
-          } else if (currentPath === "index") {
-            router.replace("/welcome");
-          }
-          // Si está en welcome, login, register, etc., no hacer nada
-          // Esto permite navegar libremente entre las pantallas de auth
-        }
-
-        setIsNavigationReady(true);
-      } catch (error) {
-        console.error("Error en navegación:", error);
-        router.replace("/welcome");
-        setIsNavigationReady(true);
+      // Evitar redirecciones innecesarias
+      if (isAuthenticated && inTabsGroup) {
+        hasNavigated.current = true;
+        return; // Ya está en la ruta correcta
       }
+
+      if (!isAuthenticated && (isWelcome || inAuthGroup)) {
+        hasNavigated.current = true;
+        return; // Ya está en la ruta correcta
+      }
+
+      // Realizar navegación necesaria
+      if (isAuthenticated) {
+        router.replace("/(tabs)/welcome");
+      } else {
+        router.replace("/welcome");
+      }
+
+      hasNavigated.current = true;
     };
 
-    handleNavigation();
-  }, [fontsLoaded, token, segments, router, tokenEsValido]);
+    // Pequeño delay para evitar conflictos con expo-router
+    const timer = setTimeout(handleInitialNavigation, 100);
+    return () => clearTimeout(timer);
+  }, [isReady, token]); // ⭐ REMOVÍ segments y router de las dependencias
 
-  // Mostrar nada hasta que todo esté listo
-  if (!fontsLoaded || !isNavigationReady) {
+  if (!isReady) {
     return null;
   }
 
@@ -118,13 +103,18 @@ function AppInitializer({ children }) {
   );
 }
 
+// -------------------------
+// Layout principal
+// -------------------------
 export default function Layout() {
   return (
     <SessionProvider>
-      <AppInitializer>
-        <Slot />
-        <StatusBar style="dark" translucent={true} />
-      </AppInitializer>
+      <SafeAreaProvider>
+        <AppInitializer>
+          <Slot />
+          <StatusBar style="dark" translucent={true} />
+        </AppInitializer>
+      </SafeAreaProvider>
     </SessionProvider>
   );
 }
