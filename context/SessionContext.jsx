@@ -1,5 +1,10 @@
-// context/SessionContext.jsx
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import {
   clearSessionData,
   getRefreshToken,
@@ -103,7 +108,6 @@ export const SessionProvider = ({ children }) => {
           });
           console.log("Logout exitoso en el servidor");
         } catch (logoutError) {
-          // Si falla el logout en el servidor, continuar con limpieza local
           console.error("Error en logout del servidor:", logoutError);
         }
       }
@@ -118,7 +122,6 @@ export const SessionProvider = ({ children }) => {
       console.log("Sesión cerrada exitosamente");
     } catch (error) {
       console.error("Error en logout:", error);
-      // Asegurar limpieza local incluso si hay errores
       try {
         await clearSessionData();
         setTokenState(null);
@@ -135,25 +138,31 @@ export const SessionProvider = ({ children }) => {
   // -------------------------
   // HELPERS
   // -------------------------
-  const decodificarToken = (tokenParam = null) => {
-    const tokenADecodificar = tokenParam || token;
-    if (!tokenADecodificar) return null;
-    try {
-      const payload = tokenADecodificar.split(".")[1];
-      return JSON.parse(atob(payload));
-    } catch (error) {
-      console.error("Error decodificando token:", error);
-      return null;
-    }
-  };
+  const decodificarToken = useCallback(
+    (tokenParam = null) => {
+      const tokenADecodificar = tokenParam || token;
+      if (!tokenADecodificar) return null;
+      try {
+        const payload = tokenADecodificar.split(".")[1];
+        return JSON.parse(atob(payload));
+      } catch (error) {
+        console.error("Error decodificando token:", error);
+        return null;
+      }
+    },
+    [token]
+  );
 
-  const tokenEsValido = () => {
+  const tokenEsValido = useCallback(() => {
     const claims = decodificarToken();
     if (!claims) return false;
     const ahora = Math.floor(Date.now() / 1000);
     return claims.exp > ahora;
-  };
+  }, [decodificarToken]);
 
+  // -------------------------
+  // VALOR DEL CONTEXTO
+  // -------------------------
   const contextValue = {
     // Estados
     token,
