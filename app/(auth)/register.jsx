@@ -1,4 +1,4 @@
-// app/(auth)/register.jsx
+// app/(auth)/register.jsx - Con redirección a permisos
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -28,7 +28,6 @@ const { width } = Dimensions.get("window");
 export default function RegisterScreen() {
   const router = useRouter();
 
-  // Estados del formulario
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     firstName: "",
@@ -43,28 +42,21 @@ export default function RegisterScreen() {
 
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-
-  // Estados para datos dinámicos
   const [documentTypes, setDocumentTypes] = useState([]);
   const [genders, setGenders] = useState([]);
   const [selectedDocumentType, setSelectedDocumentType] = useState(null);
   const [selectedGender, setSelectedGender] = useState(null);
   const [loadingData, setLoadingData] = useState(true);
-
-  // Estados para modales
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [showGenderModal, setShowGenderModal] = useState(false);
 
-  // Animaciones
   const progressAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
 
-  // Cargar datos iniciales
   useEffect(() => {
     loadInitialData();
   }, []);
 
-  // Animar cambios de paso
   useEffect(() => {
     Animated.parallel([
       Animated.timing(progressAnim, {
@@ -217,7 +209,7 @@ export default function RegisterScreen() {
       if (response.data.success || response.status === 201) {
         Alert.alert(
           "¡Registro exitoso!",
-          "Tu cuenta ha sido creada correctamente. Ahora puedes iniciar sesión.",
+          "Tu cuenta ha sido creada correctamente. Inicia sesión para configurar tus permisos.",
           [
             {
               text: "Continuar",
@@ -285,7 +277,6 @@ export default function RegisterScreen() {
         error={errors.confirmPassword}
       />
 
-      {/* Botones del Step 1 */}
       <View style={styles.buttonContainer}>
         <CustomButton
           text="Continuar"
@@ -364,7 +355,6 @@ export default function RegisterScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Botones del Step 2 */}
       <View style={styles.buttonContainer}>
         <CustomButton
           text="Atrás"
@@ -427,7 +417,6 @@ export default function RegisterScreen() {
         </View>
       </View>
 
-      {/* Botones del Step 3 */}
       <View style={styles.buttonContainer}>
         <CustomButton
           text="Atrás"
@@ -469,7 +458,6 @@ export default function RegisterScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Logo y título */}
           <View style={styles.topSection}>
             <View style={styles.titleRow}>
               <Text style={styles.mainTitle}>Crear cuenta</Text>
@@ -477,7 +465,6 @@ export default function RegisterScreen() {
             </View>
           </View>
 
-          {/* Progress bar */}
           <View style={styles.progressContainer}>
             <View style={styles.progressBar}>
               <Animated.View
@@ -494,17 +481,14 @@ export default function RegisterScreen() {
             </View>
           </View>
 
-          {/* Error general */}
           {errors.general && (
             <Text style={styles.generalError}>{errors.general}</Text>
           )}
 
-          {/* Pasos del formulario */}
           {currentStep === 1 && renderStep1()}
           {currentStep === 2 && renderStep2()}
           {currentStep === 3 && renderStep3()}
 
-          {/* Footer */}
           <View style={styles.footer}>
             <View style={styles.footerLinks}>
               <Text style={styles.footerText}>¿Ya tienes cuenta? </Text>
@@ -516,7 +500,6 @@ export default function RegisterScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Modales */}
       <Modal
         visible={showGenderModal}
         transparent={true}
@@ -696,7 +679,6 @@ const styles = StyleSheet.create({
   stepContainer: {
     flex: 1,
   },
-
   stepSubtitle: {
     ...typography.regular.medium,
     color: colors.textSec,

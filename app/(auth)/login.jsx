@@ -19,6 +19,7 @@ import { colors } from "../../config/theme";
 import { typography } from "../../config/typography";
 import { useSession } from "../../context/SessionContext";
 import axiosPublic from "../../services/axiosPublic";
+import { getPermissionsAsked } from "../../services/permissions";
 
 const LAST_EMAIL_KEY = "@last_login_email_restpaid";
 
@@ -144,7 +145,16 @@ export default function LoginScreen() {
         username: username,
       });
 
-      router.replace("/(tabs)/welcome");
+      // ⭐ NUEVA LÓGICA: Verificar si ya se pidieron los permisos
+      const permissionsAsked = await getPermissionsAsked();
+
+      if (permissionsAsked) {
+        // Si ya se pidieron, ir directamente a la app
+        router.replace("/(tabs)/welcome");
+      } else {
+        // Si no se han pedido, ir a la pantalla de permisos
+        router.replace("/permissions");
+      }
     } catch (err) {
       console.error("Error en login:", err);
       console.error("Detalles del error:", {
@@ -219,7 +229,6 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Logo y título */}
           <View style={styles.topSection}>
             <Text style={styles.mainTitle}>Iniciar Sesión</Text>
             <Text style={styles.subtitle}>
@@ -227,12 +236,10 @@ export default function LoginScreen() {
             </Text>
           </View>
 
-          {/* Error general */}
           {errors.general && (
             <Text style={styles.generalError}>{errors.general}</Text>
           )}
 
-          {/* Formulario */}
           <View style={styles.stepContainer}>
             <CustomInput
               label="Email o Documento"
@@ -258,7 +265,6 @@ export default function LoginScreen() {
               error={errors.password}
             />
 
-            {/* Fila con checkbox "Recordarme" y link "Olvidaste contraseña" */}
             <View style={styles.optionsRow}>
               <TouchableOpacity
                 style={styles.checkboxContainer}
@@ -284,7 +290,6 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Botones */}
             <View style={styles.buttonContainer}>
               <CustomButton
                 text={isLoading ? "Ingresando..." : "Iniciar Sesión"}
@@ -381,7 +386,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   rememberText: {
-    marginLeft: 8, // Aumentado de 6 a 8
+    marginLeft: 8,
     fontSize: 13,
     color: colors.textSec,
     ...typography.regular.medium,
