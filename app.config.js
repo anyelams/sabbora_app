@@ -31,12 +31,22 @@ export default ({ config }) => ({
     plugins: [
       "expo-router",
       "expo-font",
-      "expo-location",
+      [
+        "expo-location",
+        {
+          locationAlwaysAndWhenInUsePermission:
+            "Sabbora necesita acceso a tu ubicación para encontrar restaurantes cercanos y ofrecerte mejores recomendaciones.",
+          locationWhenInUsePermission:
+            "Sabbora necesita acceso a tu ubicación para encontrar restaurantes cercanos y ofrecerte mejores recomendaciones.",
+          isAndroidBackgroundLocationEnabled: false, // Solo ubicación en primer plano
+        },
+      ],
       [
         "expo-notifications",
         {
           icon: "./assets/images/notification-icon.png",
-          color: "#ffffff",
+          color: "#B32231", // Cambia esto por tu color primario
+          sounds: [], // Opcional: agrega sonidos personalizados
         },
       ],
       [
