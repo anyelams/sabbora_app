@@ -4,8 +4,16 @@ import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import Animated, {
+  FadeInUp,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -20,10 +28,6 @@ import {
   savePermissionsAsked,
 } from "../../services/permissions";
 
-/**
- * Pantalla de solicitud de permisos
- * Se muestra después del login para pedir permisos de ubicación y notificaciones
- */
 export default function PermissionsScreen() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -31,35 +35,49 @@ export default function PermissionsScreen() {
     location: null,
     notifications: null,
   });
+  const [showMessage, setShowMessage] = useState(null);
 
-  // Animaciones
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(30);
+  const messageOpacity = useSharedValue(0);
 
   useEffect(() => {
-    // Animar entrada
     opacity.value = withDelay(100, withSpring(1));
     translateY.value = withDelay(100, withSpring(0));
-
-    // Verificar permisos actuales
     checkCurrentPermissions();
   }, []);
+
+  useEffect(() => {
+    if (showMessage) {
+      messageOpacity.value = withSpring(1);
+      const timer = setTimeout(() => {
+        messageOpacity.value = withSpring(0);
+        setTimeout(() => setShowMessage(null), 300);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showMessage]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
     transform: [{ translateY: translateY.value }],
   }));
 
+  const messageAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: messageOpacity.value,
+    transform: [
+      { translateY: withSpring(messageOpacity.value === 1 ? 0 : -10) },
+    ],
+  }));
+
   const checkCurrentPermissions = async () => {
     try {
-      // Verificar ubicación
       const locationStatus = await Location.getForegroundPermissionsAsync();
       setPermissions((prev) => ({
         ...prev,
         location: locationStatus.status === "granted",
       }));
 
-      // Verificar notificaciones
       const notificationStatus = await Notifications.getPermissionsAsync();
       setPermissions((prev) => ({
         ...prev,
@@ -99,29 +117,26 @@ export default function PermissionsScreen() {
     setIsLoading(true);
 
     try {
-      // Solicitar ubicación
       if (!permissions.location) {
         console.log("Solicitando permiso de ubicación...");
         const locationGranted = await requestLocationPermission();
 
         if (locationGranted) {
           console.log("Permiso de ubicación concedido");
+          setShowMessage({
+            type: "success",
+            text: "Ubicación habilitada",
+          });
 
-          // Obtener y mostrar ubicación inmediatamente
           const currentLoc = await getCurrentLocation();
           if (currentLoc) {
             console.log("Primera ubicación obtenida:", currentLoc);
           }
         } else {
           console.log("Permiso de ubicación denegado");
-          Alert.alert(
-            "Permiso de ubicación",
-            "La ubicación nos ayuda a encontrar restaurantes cerca de ti. Puedes habilitarlo más tarde en Configuración."
-          );
         }
       }
 
-      // Solicitar notificaciones
       if (!permissions.notifications) {
         console.log("Solicitando permiso de notificaciones...");
         const notificationGranted = await requestNotificationPermission();
@@ -130,25 +145,17 @@ export default function PermissionsScreen() {
           console.log("Permiso de notificaciones concedido");
         } else {
           console.log("Permiso de notificaciones denegado");
-          Alert.alert(
-            "Permiso de notificaciones",
-            "Las notificaciones te mantienen informado sobre tus reservas. Puedes habilitarlas más tarde en Configuración."
-          );
         }
       }
 
-      // Marcar que ya se pidieron los permisos
       await savePermissionsAsked();
       console.log("Estado de permisos guardado");
 
-      // Navegar a la pantalla principal
-      router.replace("/(tabs)/welcome");
+      setTimeout(() => {
+        router.replace("/(tabs)/welcome");
+      }, 1000);
     } catch (error) {
       console.error("Error solicitando permisos:", error);
-      Alert.alert(
-        "Error",
-        "Hubo un problema al solicitar los permisos. Continuando..."
-      );
       router.replace("/(tabs)/welcome");
     } finally {
       setIsLoading(false);
@@ -157,7 +164,6 @@ export default function PermissionsScreen() {
 
   const handleSkip = async () => {
     try {
-      // Marcar que ya se mostraron los permisos (aunque el usuario los saltó)
       await savePermissionsAsked();
       router.replace("/(tabs)/welcome");
     } catch (error) {
@@ -168,121 +174,102 @@ export default function PermissionsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {showMessage && (
+        <Animated.View style={[styles.toast, messageAnimatedStyle]}>
+          <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+          <Text style={styles.toastText}>{showMessage.text}</Text>
+        </Animated.View>
+      )}
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={[styles.content, animatedStyle]}>
-          {/* Icono principal */}
-          <View style={styles.iconContainer}>
-            <View style={styles.iconCircle}>
-              <Ionicons
-                name="checkmark-circle"
-                size={80}
-                color={colors.primary}
-              />
-            </View>
-          </View>
-
-          {/* Título */}
-          <Text style={styles.title}>¡Bienvenido a Inmero!</Text>
-          <Text style={styles.subtitle}>
-            Para brindarte la mejor experiencia, necesitamos tu permiso para:
-          </Text>
-
-          {/* Lista de permisos */}
-          <View style={styles.permissionsList}>
-            {/* Ubicación */}
-            <View style={styles.permissionItem}>
-              <View style={styles.permissionIcon}>
-                <Ionicons
-                  name="location"
-                  size={28}
-                  color={
-                    permissions.location === true
-                      ? colors.success
-                      : colors.primary
-                  }
-                />
-              </View>
-              <View style={styles.permissionText}>
-                <Text style={styles.permissionTitle}>Ubicación</Text>
-                <Text style={styles.permissionDescription}>
-                  Encuentra restaurantes cerca de ti y obtén mejores
-                  recomendaciones
-                </Text>
-              </View>
-              {permissions.location === true && (
-                <Ionicons
-                  name="checkmark-circle"
-                  size={24}
-                  color={colors.success}
-                />
-              )}
-            </View>
-
-            {/* Notificaciones */}
-            <View style={styles.permissionItem}>
-              <View style={styles.permissionIcon}>
-                <Ionicons
-                  name="notifications"
-                  size={28}
-                  color={
-                    permissions.notifications === true
-                      ? colors.success
-                      : colors.primary
-                  }
-                />
-              </View>
-              <View style={styles.permissionText}>
-                <Text style={styles.permissionTitle}>Notificaciones</Text>
-                <Text style={styles.permissionDescription}>
-                  Recibe actualizaciones sobre tus reservas y ofertas especiales
-                </Text>
-              </View>
-              {permissions.notifications === true && (
-                <Ionicons
-                  name="checkmark-circle"
-                  size={24}
-                  color={colors.success}
-                />
-              )}
-            </View>
-          </View>
-
-          {/* Nota informativa */}
-          <View style={styles.infoBox}>
-            <Ionicons
-              name="shield-checkmark-outline"
-              size={20}
-              color={colors.primary}
-            />
-            <Text style={styles.infoText}>
-              Tus datos están protegidos. Puedes cambiar estos permisos en
-              cualquier momento desde la configuración de tu dispositivo.
+          <View style={styles.headerSection}>
+            <Text style={styles.title}>Antes de empezar</Text>
+            <Text style={styles.subtitle}>
+              Configura estos permisos para aprovechar al máximo Sabbora.
             </Text>
+          </View>
+
+          <View style={styles.illustrationContainer}>
+            <Image
+              source={require("../../assets/images/location.png")}
+              style={styles.illustration}
+              resizeMode="contain"
+            />
+          </View>
+
+          <View style={styles.permissionsList}>
+            <Animated.View
+              entering={FadeInUp.delay(150)}
+              style={styles.permissionCard}
+            >
+              <View style={styles.permissionIconWrapper}>
+                <View style={styles.iconCircle}>
+                  <Ionicons name="navigate" size={18} color={colors.primary} />
+                </View>
+              </View>
+              <View style={styles.permissionContent}>
+                <Text style={styles.permissionTitle}>Ubicación</Text>
+                <Text style={styles.permissionDesc}>
+                  Para sugerirte lugares cerca de ti.
+                </Text>
+              </View>
+            </Animated.View>
+
+            <Animated.View
+              entering={FadeInUp.delay(300)}
+              style={styles.permissionCard}
+            >
+              <View style={styles.permissionIconWrapper}>
+                <View style={styles.iconCircle}>
+                  <Ionicons
+                    name="notifications"
+                    size={16}
+                    color={colors.primary}
+                  />
+                </View>
+              </View>
+              <View style={styles.permissionContent}>
+                <Text style={styles.permissionTitle}>Notificaciones</Text>
+                <Text style={styles.permissionDesc}>
+                  Te avisaremos cuando se acerque una reserva.
+                </Text>
+              </View>
+            </Animated.View>
+          </View>
+
+          <View style={styles.footer}>
+            <View style={styles.infoRow}>
+              <Ionicons
+                name="lock-closed-outline"
+                size={14}
+                color={colors.textSec}
+              />
+              <Text style={styles.infoText}>
+                Puedes cambiar estos permisos más adelante
+              </Text>
+            </View>
+            <CustomButton
+              text={isLoading ? "Configurando..." : "Continuar"}
+              onPress={handleRequestPermissions}
+              variant="primary"
+              disabled={isLoading}
+              style={styles.button}
+            />
+            <TouchableOpacity
+              onPress={handleSkip}
+              disabled={isLoading}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.skipText}>Omitir por ahora</Text>
+            </TouchableOpacity>
           </View>
         </Animated.View>
       </ScrollView>
-
-      {/* Botones de acción */}
-      <View style={styles.footer}>
-        <CustomButton
-          text={isLoading ? "Procesando..." : "Permitir acceso"}
-          onPress={handleRequestPermissions}
-          variant="primary"
-          disabled={isLoading}
-          style={styles.button}
-        />
-        <CustomButton
-          text="Más tarde"
-          onPress={handleSkip}
-          variant="outline"
-          disabled={isLoading}
-          style={styles.button}
-        />
-      </View>
     </SafeAreaView>
   );
 }
@@ -292,104 +279,139 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.white,
   },
+  toast: {
+    position: "absolute",
+    top: 60,
+    left: 24,
+    right: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.white,
+    padding: 16,
+    borderRadius: 16,
+    gap: 10,
+    zIndex: 1000,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: "#f0f0f0",
+  },
+  toastText: {
+    ...typography.medium.medium,
+    color: colors.text,
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 20,
+    paddingHorizontal: 32,
+    paddingVertical: 60,
   },
   content: {
     flex: 1,
+    justifyContent: "space-between",
   },
-  iconContainer: {
+  headerSection: {
     alignItems: "center",
-    marginTop: 20,
-    marginBottom: 24,
-  },
-  iconCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "#fff5f5",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 3,
-    borderColor: colors.primary,
+    paddingHorizontal: 16,
   },
   title: {
     ...typography.bold.big,
     fontSize: 28,
     color: colors.text,
+    marginBottom: 16,
+    letterSpacing: -0.5,
     textAlign: "center",
-    marginBottom: 12,
   },
   subtitle: {
-    ...typography.regular.medium,
+    ...typography.regular.large,
     color: colors.textSec,
+    lineHeight: 24,
     textAlign: "center",
-    marginBottom: 32,
-    lineHeight: 22,
+    fontSize: 15,
+  },
+  illustrationContainer: {
+    alignItems: "center",
+    marginVertical: 40,
+  },
+  illustration: {
+    width: 200,
+    height: 200,
   },
   permissionsList: {
-    gap: 20,
-    marginBottom: 24,
+    gap: 16,
   },
-  permissionItem: {
+  permissionCard: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    backgroundColor: colors.lightGray,
-    padding: 16,
+    backgroundColor: "#fafafa5c",
+    padding: 18,
     borderRadius: 16,
-    gap: 12,
+    gap: 16,
+    borderWidth: 1,
+    borderColor: "#f0f0f07f",
   },
-  permissionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.white,
+  permissionIconWrapper: {
     justifyContent: "center",
     alignItems: "center",
   },
-  permissionText: {
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 22,
+    backgroundColor: colors.white,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#e8e8e8",
+  },
+  permissionContent: {
     flex: 1,
+    justifyContent: "center",
   },
   permissionTitle: {
-    ...typography.semibold.medium,
+    ...typography.semibold.large,
     color: colors.text,
-    marginBottom: 4,
+    fontSize: 16,
+    marginBottom: 6,
   },
-  permissionDescription: {
-    ...typography.regular.regular,
+  permissionDesc: {
+    ...typography.regular.medium,
     color: colors.textSec,
+    fontSize: 13,
     lineHeight: 20,
   },
-  infoBox: {
+  footer: {
+    paddingTop: 40,
+    gap: 16,
+    alignItems: "center",
+  },
+  infoRow: {
     flexDirection: "row",
-    backgroundColor: "#f0f9ff",
-    padding: 16,
-    borderRadius: 12,
-    gap: 12,
-    alignItems: "flex-start",
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 18,
+    marginBottom: 4,
   },
   infoText: {
     ...typography.regular.small,
     color: colors.textSec,
-    flex: 1,
+    textAlign: "center",
+    fontSize: 12,
     lineHeight: 18,
-  },
-  footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 20,
-    paddingTop: 16,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
   },
   button: {
     width: "100%",
+  },
+  skipText: {
+    ...typography.semibold.medium,
+    color: colors.textSec,
+    textAlign: "center",
+    paddingVertical: 12,
+    fontSize: 14,
   },
 });
