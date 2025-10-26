@@ -15,7 +15,7 @@ const axiosPrivate = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 15000, // 15 segundos timeout
+  timeout: 15000,
 });
 
 let refreshPromise = null;
@@ -56,10 +56,15 @@ axiosPrivate.interceptors.response.use(
     return response;
   },
   async (error) => {
-    console.log("Entro al interceptor de error");
+    console.log("Entró al interceptor de error");
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Evitar interceptar el propio request de refresh
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.url?.includes("/refresh-token")
+    ) {
       console.log("Token expirado, intentando refresh...");
       originalRequest._retry = true;
 
@@ -76,10 +81,8 @@ axiosPrivate.interceptors.response.use(
         // Evitar múltiples requests de refresh simultáneos
         if (!refreshPromise) {
           refreshPromise = axios.post(
-            "https://api.inmero.co/restpaid/auth/refresh",
-            {
-              refresh_token: refreshToken,
-            },
+            `${API_BASE_URL}/users/refresh-token?refresh_token=${refreshToken}`,
+            {},
             {
               headers: {
                 Authorization: `Bearer ${currentToken}`,
@@ -117,15 +120,17 @@ axiosPrivate.interceptors.response.use(
         // Reintentar el request original
         return axiosPrivate(originalRequest);
       } catch (refreshError) {
-        console.error("Error refrescando token:", refreshError);
+        console.error("Error refrescando token:", refreshError.message);
+
+        if (refreshError.response) {
+          console.error("Response status:", refreshError.response.status);
+          console.error("Response data:", refreshError.response.data);
+        }
+
         refreshPromise = null;
 
         // Limpiar sesión si falla el refresh
         await clearSessionData();
-
-        // Opcional: Redirigir al login o mostrar modal
-        // Esto depende de cómo manejes la navegación en tu app
-        // router.replace("/welcome");
 
         throw refreshError;
       }
