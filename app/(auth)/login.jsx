@@ -18,8 +18,8 @@ import CustomInput from "../../components/CustomInput";
 import { colors } from "../../config/theme";
 import { typography } from "../../config/typography";
 import { useSession } from "../../context/SessionContext";
+import { usePermissions } from "../../hooks/usePermissions";
 import axiosPublic from "../../services/axiosPublic";
-import { getPermissionsAsked } from "../../services/permissions";
 
 const LAST_EMAIL_KEY = "@last_login_email_restpaid";
 
@@ -34,7 +34,9 @@ export default function LoginScreen() {
   const [rememberEmail, setRememberEmail] = useState(true);
 
   const { guardarSesionCompleta, decodificarToken } = useSession();
+  const { checkPermissionsAsked } = usePermissions();
 
+  // Cargar email guardado al iniciar
   useEffect(() => {
     loadSavedEmail();
   }, []);
@@ -44,8 +46,6 @@ export default function LoginScreen() {
       const savedEmail = await AsyncStorage.getItem(LAST_EMAIL_KEY);
       if (savedEmail) {
         setEmailOrDocument(savedEmail);
-        setRememberEmail(true);
-      } else {
         setRememberEmail(true);
       }
     } catch (error) {
@@ -93,25 +93,24 @@ export default function LoginScreen() {
     if (isLoading) return;
 
     setErrors({});
-    setIsLoading(true);
 
+    // Validar campos
     if (!emailOrDocument.trim()) {
       setErrors({ emailOrDocument: "Email o documento requerido" });
-      setIsLoading(false);
       return;
     }
 
     if (!password.trim()) {
       setErrors({ password: "Contraseña requerida" });
-      setIsLoading(false);
       return;
     }
 
     if (!validateEmailOrDocument(emailOrDocument)) {
       setErrors({ emailOrDocument: "Email o documento inválido" });
-      setIsLoading(false);
       return;
     }
+
+    setIsLoading(true);
 
     try {
       const response = await axiosPublic.post("/users/login", {
@@ -123,36 +122,35 @@ export default function LoginScreen() {
 
       if (!access_token) {
         setErrors({ general: "Error: No se recibió token del servidor" });
-        setIsLoading(false);
         return;
       }
 
+      // Guardar o eliminar email recordado
       if (rememberEmail) {
         await saveEmail(emailOrDocument.trim());
       } else {
         await AsyncStorage.removeItem(LAST_EMAIL_KEY);
       }
 
+      // Extraer userId del token o del user
       const tokenPayload = decodificarToken(access_token);
       const userId = tokenPayload?.user_id || user?.id;
-      const username = user?.email || user?.username || emailOrDocument.trim();
 
+      // Guardar sesión completa
+      // fetchUserData se ejecutará automáticamente si pasamos userId
       await guardarSesionCompleta({
         token: access_token,
         refreshToken: refresh_token,
         tokenType: token_type || "bearer",
         userId: userId,
-        username: username,
       });
 
-      // ⭐ NUEVA LÓGICA: Verificar si ya se pidieron los permisos
-      const permissionsAsked = await getPermissionsAsked();
+      // Verificar permisos y navegar
+      const permissionsAsked = await checkPermissionsAsked();
 
       if (permissionsAsked) {
-        // Si ya se pidieron, ir directamente a la app
         router.replace("/(tabs)/welcome");
       } else {
-        // Si no se han pedido, ir a la pantalla de permisos
         router.replace("/permissions");
       }
     } catch (err) {
@@ -281,7 +279,7 @@ export default function LoginScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                onPress={() => router.replace("/forgotPassword")}
+                onPress={() => router.replace("/(auth)/forgotPassword")}
                 disabled={isLoading}
               >
                 <Text style={styles.forgotPasswordText}>
@@ -301,11 +299,12 @@ export default function LoginScreen() {
               />
             </View>
           </View>
+
           <View style={styles.footer}>
             <View style={styles.footerLinks}>
               <Text style={styles.footerText}>¿No tienes cuenta? </Text>
               <TouchableOpacity
-                onPress={() => router.replace("/register")}
+                onPress={() => router.replace("/(auth)/register")}
                 disabled={isLoading}
               >
                 <Text style={styles.linkText}>Regístrate</Text>
