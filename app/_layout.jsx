@@ -14,7 +14,7 @@ import { LogBox } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { SessionProvider, useSession } from "../context/SessionContext";
-import { getPermissionsAsked } from "../services/permissions";
+import { usePermissions } from "../hooks/usePermissions";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -24,10 +24,12 @@ SplashScreen.preventAutoHideAsync();
 function AppInitializer({ children }) {
   const router = useRouter();
   const segments = useSegments();
-  const { token, tokenEsValido } = useSession();
+  const { token, refreshToken, tokenEsValido } = useSession();
+  const { checkPermissionsAsked } = usePermissions();
   const [isReady, setIsReady] = useState(false);
   const hasNavigated = useRef(false);
 
+  // Cargar fuentes personalizadas e iconos
   const [fontsLoaded] = useFonts({
     RobotoBold: require("../assets/fonts/Roboto-Bold.ttf"),
     RobotoSemiBold: require("../assets/fonts/Roboto-SemiBold.ttf"),
@@ -40,7 +42,7 @@ function AppInitializer({ children }) {
     ...MaterialIcons.font,
   });
 
-  // Ignorar logs molestos
+  // Ignorar warnings específicos de terceros
   useEffect(() => {
     LogBox.ignoreLogs([
       "Support for defaultProps will be removed",
@@ -49,7 +51,7 @@ function AppInitializer({ children }) {
     ]);
   }, []);
 
-  // Ocultar splash cuando se carguen las fuentes
+  // Ocultar splash screen cuando las fuentes estén cargadas
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync()
@@ -58,57 +60,68 @@ function AppInitializer({ children }) {
     }
   }, [fontsLoaded]);
 
-  // Navegación inicial solo UNA VEZ
+  // Navegación inicial basada en estado de autenticación
   useEffect(() => {
     if (!isReady || hasNavigated.current) return;
 
     const handleInitialNavigation = async () => {
-      const isAuthenticated = token && tokenEsValido();
+      // Determinar si el usuario está autenticado
+      // Se considera autenticado si:
+      // 1. Tiene un token válido (no expirado), O
+      // 2. Tiene ambos tokens (access y refresh) - el interceptor renovará automáticamente si expira
+      const isAuthenticated =
+        (token && tokenEsValido()) || (token && refreshToken);
+
+      // Detectar en qué grupo de rutas está el usuario
       const inAuthGroup = segments[0] === "(auth)";
       const inTabsGroup = segments[0] === "(tabs)";
       const isWelcome = segments[0] === "welcome" || segments.length === 0;
       const isPermissionsScreen = segments.includes("permissions");
 
-      // ⭐ Verificar si ya se pidieron los permisos
-      const permissionsAsked = await getPermissionsAsked();
+      // Verificar si ya se solicitaron los permisos anteriormente
+      const permissionsAsked = await checkPermissionsAsked();
 
-      // Evitar redirecciones innecesarias
+      // Evitar redirecciones innecesarias si ya está en la ruta correcta
       if (isAuthenticated && inTabsGroup && permissionsAsked) {
         hasNavigated.current = true;
-        return; // Ya está en la ruta correcta
+        return;
       }
 
-      // Si está autenticado pero en pantalla de permisos, dejarlo ahí
+      // Permitir que usuarios autenticados permanezcan en pantalla de permisos
       if (isAuthenticated && isPermissionsScreen) {
         hasNavigated.current = true;
         return;
       }
 
+      // Permitir que usuarios no autenticados permanezcan en welcome o auth
       if (!isAuthenticated && (isWelcome || inAuthGroup)) {
         hasNavigated.current = true;
-        return; // Ya está en la ruta correcta
+        return;
       }
 
-      // Realizar navegación necesaria
+      // Realizar navegación según estado de autenticación y permisos
       if (isAuthenticated) {
-        // Si está autenticado pero no se han pedido permisos, ir a permisos
         if (!permissionsAsked) {
+          // Usuario autenticado pero sin permisos solicitados
           router.replace("/permissions");
         } else {
+          // Usuario autenticado con permisos ya solicitados
           router.replace("/(tabs)/welcome");
         }
       } else {
+        // Usuario no autenticado
         router.replace("/welcome");
       }
 
       hasNavigated.current = true;
     };
 
-    // Pequeño delay para evitar conflictos con expo-router
+    // Delay breve para evitar conflictos con el sistema de rutas de expo-router
     const timer = setTimeout(handleInitialNavigation, 100);
     return () => clearTimeout(timer);
-  }, [isReady, token]);
+  }, [isReady, token, refreshToken, checkPermissionsAsked]);
 
+  // Mostrar pantalla vacía mientras se inicializa
   if (!isReady) {
     return null;
   }
@@ -121,7 +134,7 @@ function AppInitializer({ children }) {
 }
 
 // -------------------------
-// Layout principal
+// Layout principal de la aplicación
 // -------------------------
 export default function Layout() {
   return (
