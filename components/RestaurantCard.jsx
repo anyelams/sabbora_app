@@ -1,4 +1,6 @@
+// components/RestaurantCard.jsx
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { colors } from "../config/theme";
 import { typography } from "../config/typography";
@@ -10,21 +12,32 @@ export default function RestaurantCard({
   variant = "nearby",
   isFavorite = false,
 }) {
-  console.log("RestaurantCard recibió:", {
-    name: restaurant.name,
-    id: restaurant.id,
-    rating: restaurant.rating,
-    totalReviews: restaurant.totalReviews,
-    fullRestaurant: restaurant,
-  });
+  const router = useRouter();
 
+  const validPhotos =
+    restaurant.location_photos?.filter((p) => !p.deleted_at) || [];
   const imageUrl =
-    restaurant.location_photos && restaurant.location_photos.length > 0
-      ? restaurant.location_photos[0].photo_url
+    validPhotos.length > 0
+      ? validPhotos[0].photo_url
       : "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800";
 
   const rating = restaurant.rating || 0;
   const totalReviews = restaurant.totalReviews || 0;
+
+  const getFullAddress = () => {
+    const parts = [];
+    if (restaurant.address) parts.push(restaurant.address);
+    if (restaurant.city_name) parts.push(restaurant.city_name);
+    return parts.join(", ") || "Sin dirección";
+  };
+
+  const handlePress = () => {
+    if (onPress) {
+      onPress();
+    } else {
+      router.push(`/restaurant/${restaurant.id}`);
+    }
+  };
 
   const handleFavoritePress = (e) => {
     e.stopPropagation();
@@ -37,10 +50,14 @@ export default function RestaurantCard({
     return (
       <TouchableOpacity
         style={styles.listCard}
-        onPress={onPress}
+        onPress={handlePress}
         activeOpacity={0.7}
       >
-        <Image source={{ uri: imageUrl }} style={styles.listCardImage} />
+        <Image
+          source={{ uri: imageUrl }}
+          style={styles.listCardImage}
+          resizeMode="cover"
+        />
         <View style={styles.listCardInfo}>
           <Text style={styles.listCardName} numberOfLines={1}>
             {restaurant.name}
@@ -62,7 +79,7 @@ export default function RestaurantCard({
             </Text>
           </View>
           <Text style={styles.addressText} numberOfLines={1}>
-            {restaurant.address || restaurant.city_name}
+            {getFullAddress()}
           </Text>
         </View>
         <View style={styles.listCardRight}>
@@ -94,10 +111,17 @@ export default function RestaurantCard({
     );
   }
 
-  // Card variant (nearby or favorite)
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.9}>
-      <Image source={{ uri: imageUrl }} style={styles.cardImage} />
+    <TouchableOpacity
+      style={styles.card}
+      onPress={handlePress}
+      activeOpacity={0.9}
+    >
+      <Image
+        source={{ uri: imageUrl }}
+        style={styles.cardImage}
+        resizeMode="cover"
+      />
       {restaurant.distanceFormatted && (
         <View style={styles.distanceBadge}>
           <Ionicons name="location-sharp" size={10} color={colors.white} />
@@ -127,7 +151,7 @@ export default function RestaurantCard({
           </Text>
         </View>
         <Text style={styles.addressText} numberOfLines={1}>
-          {restaurant.address || restaurant.city_name}
+          {getFullAddress()}
         </Text>
       </View>
       <TouchableOpacity
@@ -146,7 +170,6 @@ export default function RestaurantCard({
 }
 
 const styles = StyleSheet.create({
-  // Card variant styles
   card: {
     width: 280,
     backgroundColor: colors.white,
@@ -227,8 +250,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-
-  // List variant styles
   listCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -238,8 +259,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   listCardImage: {
-    width: 80,
-    height: 80,
+    width: 108,
+    height: 85,
     borderRadius: 12,
     backgroundColor: colors.lightGray,
   },
