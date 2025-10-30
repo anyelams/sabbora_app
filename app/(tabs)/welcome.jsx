@@ -279,7 +279,7 @@ export default function WelcomeScreen() {
   const handleRestaurantPress = useCallback(
     (restaurant) => {
       router.push({
-        pathname: `/restaurants/${restaurant.id}`,
+        pathname: `/restaurant/${restaurant.id}`,
         params: { restaurant: JSON.stringify(restaurant) },
       });
     },
