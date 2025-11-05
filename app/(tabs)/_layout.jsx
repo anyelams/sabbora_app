@@ -52,25 +52,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="chat"
-        options={{
-          title: "Chatbot",
-          tabBarIcon: ({ color, focused }) => (
-            <View style={styles.iconContainer}>
-              <Ionicons
-                name={
-                  focused
-                    ? "chatbubble-ellipses"
-                    : "chatbubble-ellipses-outline"
-                }
-                size={22}
-                color={color}
-              />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="reservas"
         options={{
           title: "Reservas",
