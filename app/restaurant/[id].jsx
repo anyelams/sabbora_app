@@ -465,7 +465,7 @@ export default function RestaurantDetailScreen() {
                 <View style={styles.searchContainer}>
                   <Ionicons
                     name="search-outline"
-                    size={20}
+                    size={18}
                     color={colors.textSec}
                     style={styles.searchIcon}
                   />
@@ -711,7 +711,7 @@ export default function RestaurantDetailScreen() {
       <View style={styles.reserveButtonContainer}>
         <CustomButton
           text="Reservar una mesa"
-          onPress={() => router.push(`/reservation/${id}`)}
+          onPress={() => router.push(`/restaurant/booking/${id}`)}
           variant="primary"
           fullWidth
         />
@@ -1273,7 +1273,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   writeReviewText: {
-    ...typography.semibold.medium,
+    ...typography.medium.medium,
     color: colors.error,
   },
   ratingSection: {
@@ -1356,9 +1356,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.lightGray,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     marginBottom: 16,
   },
   searchIcon: {
