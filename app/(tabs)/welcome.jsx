@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -53,6 +52,7 @@ export default function WelcomeScreen() {
   const [favoriteIdsMap, setFavoriteIdsMap] = useState(new Map());
   const [error, setError] = useState(null);
   const [selectedAmbienceId, setSelectedAmbienceId] = useState(null);
+  const [selectedLocationTypeId, setSelectedLocationTypeId] = useState(null);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -63,7 +63,7 @@ export default function WelcomeScreen() {
 
   // Función para manejar clic en ubicación
   const handleLocationPress = () => {
-    setShowLocationModal(true); // Abre directamente el modal con GPS
+    setShowLocationModal(true);
   };
 
   // Handler para usar GPS
@@ -84,13 +84,11 @@ export default function WelcomeScreen() {
   const fetchFavoriteRestaurants = useCallback(async () => {
     if (!userId) return;
     try {
-      // Obtener favoritos con sus IDs y datos completos en paralelo
       const [favoritesResponse, favoritesData] = await Promise.all([
         getAllUserFavoritesWithIds(userId, 100, 0),
         getUserFavorites(userId, 10, 0),
       ]);
 
-      // Crear nuevos Maps y Sets sin mutar los existentes
       const newFavoriteIdsMap = new Map();
       const newFavoriteIds = new Set();
 
@@ -102,7 +100,6 @@ export default function WelcomeScreen() {
       setFavoriteIdsMap(newFavoriteIdsMap);
       setFavoriteIds(newFavoriteIds);
 
-      // Enriquecer con distancia
       let enrichedFavorites = favoritesData;
       if (userLocation?.latitude && userLocation?.longitude) {
         enrichedFavorites = favoritesData.map((favorite) => {
@@ -120,7 +117,6 @@ export default function WelcomeScreen() {
         });
       }
 
-      // Obtener ratings para cada favorito
       const ratingSummaries = await Promise.all(
         enrichedFavorites.map((favorite) =>
           getLocationRatingSummary(favorite.id)
@@ -140,7 +136,7 @@ export default function WelcomeScreen() {
   }, [userId, userLocation?.latitude, userLocation?.longitude]);
 
   const fetchData = useCallback(
-    async (ambienceFilter = null) => {
+    async (ambienceFilter = null, locationTypeFilter = null) => {
       try {
         setIsLoading(true);
         setError(null);
@@ -151,6 +147,9 @@ export default function WelcomeScreen() {
         }
         if (ambienceFilter) {
           restaurantsUrl += `&ambience_id=${ambienceFilter}`;
+        }
+        if (locationTypeFilter) {
+          restaurantsUrl += `&location_type_id=${locationTypeFilter}`;
         }
 
         const [restaurantsRes, typesRes, ambiencesRes] = await Promise.all([
@@ -163,7 +162,6 @@ export default function WelcomeScreen() {
 
         let restaurantsData = restaurantsRes.data.data || [];
 
-        // Enriquecer con distancia y filtrar si hay ubicación del usuario
         if (userLocation?.latitude && userLocation?.longitude) {
           restaurantsData = restaurantsData
             .map((restaurant) => {
@@ -182,7 +180,6 @@ export default function WelcomeScreen() {
             .sort((a, b) => a.distance - b.distance);
         }
 
-        // Obtener ratings para todos los restaurantes
         const ratingSummaries = await Promise.all(
           restaurantsData.map((restaurant) =>
             getLocationRatingSummary(restaurant.id)
@@ -211,25 +208,20 @@ export default function WelcomeScreen() {
     [userLocation?.cityId, userLocation?.latitude, userLocation?.longitude]
   );
 
-  // Agregar esta nueva función para obtener restaurantes cercanos
   const getNearbyRestaurants = useMemo(() => {
     if (!userLocation?.latitude || !userLocation?.longitude) {
-      // Si no hay ubicación GPS, devolver los primeros 5
       return filteredRestaurants.slice(0, 5);
     }
 
-    // Filtrar restaurantes dentro de 8 km
     const MAX_DISTANCE_KM = 15;
     const nearbyRestaurants = filteredRestaurants.filter(
       (restaurant) =>
         restaurant.distance && restaurant.distance <= MAX_DISTANCE_KM
     );
 
-    // Devolver máximo 5 restaurantes cercanos
     return nearbyRestaurants.slice(0, 5);
   }, [filteredRestaurants, userLocation?.latitude, userLocation?.longitude]);
 
-  // Filtrar restaurantes cuando cambia el searchQuery
   useEffect(() => {
     if (!searchQuery.trim()) {
       setFilteredRestaurants(restaurants);
@@ -252,8 +244,8 @@ export default function WelcomeScreen() {
   }, [searchQuery, restaurants]);
 
   useEffect(() => {
-    fetchData(selectedAmbienceId);
-  }, [fetchData, selectedAmbienceId]);
+    fetchData(selectedAmbienceId, selectedLocationTypeId);
+  }, [fetchData, selectedAmbienceId, selectedLocationTypeId]);
 
   useEffect(() => {
     if (userId) {
@@ -294,14 +286,12 @@ export default function WelcomeScreen() {
       }
 
       try {
-        // Llamar al toggle con el Map de favoritos
         const result = await toggleFavorite(
           userId,
           restaurantId,
           favoriteIdsMap
         );
 
-        // Actualizar el Map y Set de favoritos localmente
         setFavoriteIdsMap((prev) => {
           const newMap = new Map(prev);
           if (result.action === "added") {
@@ -322,12 +312,9 @@ export default function WelcomeScreen() {
           return newSet;
         });
 
-        // Actualizar la lista de favoriteRestaurants
         if (result.action === "added") {
-          // Recargar favoritos cuando se agrega
           fetchFavoriteRestaurants();
         } else {
-          // Eliminar de la lista cuando se quita
           setFavoriteRestaurants((prev) =>
             prev.filter((restaurant) => restaurant.id !== restaurantId)
           );
@@ -340,40 +327,62 @@ export default function WelcomeScreen() {
   );
 
   const handleCategoryPress = useCallback((category) => {
-    console.log("Categoría seleccionada:", category);
-    // Aquí puedes agregar navegación o filtrado
+    setSelectedLocationTypeId((prevId) =>
+      prevId === category.id ? null : category.id
+    );
   }, []);
 
   const renderCategoryCard = useCallback(
     ({ item }) => {
-      const getCategoryImage = (name) => {
-        const lowerName = name.toLowerCase();
-        if (lowerName.includes("casual"))
-          return "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400";
-        if (lowerName.includes("asian") || lowerName.includes("asiatic"))
-          return "https://images.unsplash.com/photo-1585032226651-759b368d7246?w=400";
-        if (lowerName.includes("mediterran"))
-          return "https://images.unsplash.com/photo-1544025162-d76694265947?w=400";
-        return "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400";
+      const getCategoryConfig = (name) => {
+        const configs = {
+          Gastropub: "🍺",
+          Italiana: "🍝",
+          Trattoria: "🍷",
+          Estadounidense: "🍔",
+          BBQ: "🥩",
+          Europea: "🧀",
+          Japonesa: "🍱",
+          Sushi: "🍣",
+          Mexicana: "🌮",
+          Latina: "🌶️",
+          Caribeña: "🥥",
+          Mariscos: "🦞",
+          Peruana: "🥘",
+          Pizzería: "🍕",
+          Bar: "🍸",
+        };
+        return configs[name] || "🍽️";
       };
+
+      const isSelected = selectedLocationTypeId === item.id;
 
       return (
         <TouchableOpacity
-          style={styles.categoryCard}
+          style={[styles.categoryCard, isSelected && styles.categoryCardActive]}
           onPress={() => handleCategoryPress(item)}
-          activeOpacity={0.9}
+          activeOpacity={0.7}
         >
-          <Image
-            source={{ uri: getCategoryImage(item.name) }}
-            style={styles.categoryCardImage}
-          />
-          <View style={styles.categoryCardOverlay}>
-            <Text style={styles.categoryCardName}>{item.name}</Text>
+          <View style={styles.categoryCardContent}>
+            <View style={styles.categoryEmojiContainer}>
+              <Text style={styles.categoryEmoji}>
+                {getCategoryConfig(item.name)}
+              </Text>
+            </View>
+            <Text
+              style={[
+                styles.categoryCardName,
+                isSelected && styles.categoryCardNameActive,
+              ]}
+              numberOfLines={2}
+            >
+              {item.name}
+            </Text>
           </View>
         </TouchableOpacity>
       );
     },
-    [handleCategoryPress]
+    [handleCategoryPress, selectedLocationTypeId]
   );
 
   if (isLoading) {
@@ -395,7 +404,9 @@ export default function WelcomeScreen() {
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity
             style={styles.retryButton}
-            onPress={() => fetchData(selectedAmbienceId)}
+            onPress={() =>
+              fetchData(selectedAmbienceId, selectedLocationTypeId)
+            }
           >
             <Text style={styles.retryButtonText}>Reintentar</Text>
           </TouchableOpacity>
@@ -415,7 +426,6 @@ export default function WelcomeScreen() {
         hasLocationPermission={hasLocationPermission}
       />
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.userAvatar}>
             <Text style={styles.avatarText}>
@@ -442,7 +452,10 @@ export default function WelcomeScreen() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.notificationButton}>
+          <TouchableOpacity
+            style={styles.notificationButton}
+            onPress={() => router.push("/notifications")}
+          >
             <Ionicons
               name="notifications-outline"
               size={24}
@@ -451,7 +464,6 @@ export default function WelcomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Greeting */}
         <View style={styles.greetingContainer}>
           <Text style={styles.greetingText}>
             {getGreeting()},{" "}
@@ -462,7 +474,6 @@ export default function WelcomeScreen() {
           </Text>
         </View>
 
-        {/* Search */}
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color={colors.gray} />
           <TextInput
@@ -474,7 +485,6 @@ export default function WelcomeScreen() {
           />
         </View>
 
-        {/* Ambiences Filter */}
         {!searchQuery.trim() && ambiences.length > 0 && (
           <View style={styles.ambiencesContainer}>
             <FlatList
@@ -511,7 +521,6 @@ export default function WelcomeScreen() {
           </View>
         )}
 
-        {/* Search Results */}
         {searchQuery.trim() && (
           <View style={styles.section}>
             {filteredRestaurants.length > 0 ? (
@@ -550,7 +559,6 @@ export default function WelcomeScreen() {
           </View>
         )}
 
-        {/* Near You - solo mostrar si no hay búsqueda */}
         {!searchQuery.trim() && getNearbyRestaurants.length > 0 && (
           <View style={styles.section}>
             <SectionHeader
@@ -577,7 +585,6 @@ export default function WelcomeScreen() {
           </View>
         )}
 
-        {/* Your Favorites - solo mostrar si no hay búsqueda */}
         {!searchQuery.trim() &&
           (favoriteRestaurants.length > 0 ? (
             <View style={styles.section}>
@@ -624,7 +631,6 @@ export default function WelcomeScreen() {
             </View>
           ))}
 
-        {/* Discover More - solo mostrar si no hay búsqueda */}
         {!searchQuery.trim() && filteredRestaurants.length > 5 && (
           <View style={styles.section}>
             <SectionHeader
@@ -645,7 +651,6 @@ export default function WelcomeScreen() {
           </View>
         )}
 
-        {/* Categories - solo mostrar si no hay búsqueda */}
         {!searchQuery.trim() && locationTypes.length > 0 && (
           <View style={styles.section}>
             <SectionHeader
@@ -653,14 +658,16 @@ export default function WelcomeScreen() {
               showSeeAll
               onSeeAllPress={() => console.log("Ver tipos de cocina")}
             />
-            <FlatList
-              data={locationTypes}
-              renderItem={renderCategoryCard}
-              keyExtractor={(item) => item.id.toString()}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalList}
-            />
+            <View style={styles.categoriesWrapper}>
+              <FlatList
+                data={locationTypes}
+                renderItem={renderCategoryCard}
+                keyExtractor={(item) => item.id.toString()}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoriesList}
+              />
+            </View>
           </View>
         )}
 
@@ -709,8 +716,6 @@ const styles = StyleSheet.create({
     ...typography.semibold.medium,
     color: colors.white,
   },
-
-  // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -756,8 +761,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
-  // Greeting
   greetingContainer: {
     paddingHorizontal: 16,
     paddingBottom: 20,
@@ -778,8 +781,6 @@ const styles = StyleSheet.create({
     color: colors.textSec,
     marginTop: 4,
   },
-
-  // Search
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -796,17 +797,21 @@ const styles = StyleSheet.create({
     ...typography.regular.medium,
     color: colors.text,
   },
-
-  // Sections
   section: {
     marginBottom: 28,
   },
+  categoriesWrapper: {
+    paddingVertical: 2,
+  },
+  categoriesList: {
+    paddingHorizontal: 16,
+    paddingVertical: 2,
+    gap: 6,
+  },
   horizontalList: {
     paddingHorizontal: 16,
-    gap: 12,
+    gap: 6,
   },
-
-  // Ambiences
   ambiencesContainer: {
     marginBottom: 24,
   },
@@ -830,33 +835,50 @@ const styles = StyleSheet.create({
   ambienceChipTextActive: {
     color: colors.white,
   },
-
-  // Category Cards
   categoryCard: {
-    width: 160,
-    height: 120,
-    borderRadius: 16,
-    overflow: "hidden",
+    width: 90,
+    height: 80,
+    marginRight: 8,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: colors.white,
+    shadowColor: "#bcbcbcff",
+    elevation: 1,
+    borderWidth: 0.2,
+    borderColor: colors.lightGray,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 12,
   },
-  categoryCardImage: {
-    width: "100%",
-    height: "100%",
-    backgroundColor: colors.lightGray,
+  categoryCardActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  categoryCardOverlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
-    padding: 12,
+  categoryCardContent: {
+    alignItems: "center",
+    gap: 6,
+    flex: 1,
+    justifyContent: "center",
+  },
+  categoryEmojiContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  categoryEmoji: {
+    fontSize: 28,
   },
   categoryCardName: {
-    ...typography.bold.regular,
+    ...typography.medium.small,
+    color: colors.text,
+    textAlign: "center",
+    fontSize: 11,
+  },
+  categoryCardNameActive: {
     color: colors.white,
   },
-
-  // Empty Favorites
   emptyFavoritesContainer: {
     alignItems: "center",
     justifyContent: "center",
@@ -883,8 +905,6 @@ const styles = StyleSheet.create({
     color: colors.textSec,
     textAlign: "center",
   },
-
-  // Empty Search
   emptySearchContainer: {
     alignItems: "center",
     justifyContent: "center",
