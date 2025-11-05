@@ -6,11 +6,12 @@ import {
   MaterialIcons,
 } from "@expo/vector-icons";
 import { useFonts } from "expo-font";
+import * as Notifications from "expo-notifications";
 import { Slot, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
-import { LogBox } from "react-native";
+import { LogBox, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { SessionProvider, useSession } from "../context/SessionContext";
@@ -19,17 +20,188 @@ import { usePermissions } from "../hooks/usePermissions";
 SplashScreen.preventAutoHideAsync();
 
 // -------------------------
-// Inicializador de la App
+// CONFIGURAR CANAL ANDROID (IMPORTANTE)
+async function setupAndroidChannel() {
+  if (Platform.OS === "android") {
+    await Notifications.setNotificationChannelAsync("default", {
+      name: "Notificaciones",
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: "#FF231F7C",
+      sound: "default",
+    });
+  }
+}
+
+// Configurar comportamiento de notificaciones
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
+// Ejecutar configuración al cargar
+setupAndroidChannel();
+
 // -------------------------
+// SERVICIO DE NOTIFICACIONES (WebSocket con reconexión)
+const NTFY_BASE_URL = "wss://ntfy.inmero.co";
+const NTFY_BASE_URL_HTTP = "https://ntfy.inmero.co";
+const NTFY_USERNAME = "inmero";
+const NTFY_PASSWORD = "Serveria.2025";
+
+// Función para recuperar mensajes recientes
+const fetchRecentMessages = async (topic, onMessage) => {
+  try {
+    console.log("📥 Recuperando mensajes recientes de:", topic);
+    const auth = btoa(`${NTFY_USERNAME}:${NTFY_PASSWORD}`);
+    const response = await fetch(
+      `${NTFY_BASE_URL_HTTP}/${topic}/json?poll=1&since=10s`,
+      {
+        headers: { Authorization: `Basic ${auth}` },
+      }
+    );
+
+    if (!response.ok) {
+      console.error("Error recuperando mensajes:", response.status);
+      return;
+    }
+
+    const text = await response.text();
+    if (!text.trim()) {
+      console.log("No hay mensajes recientes");
+      return;
+    }
+
+    // ntfy devuelve múltiples JSONs separados por newlines
+    const messages = text
+      .split("\n")
+      .filter((line) => line.trim())
+      .map((line) => {
+        try {
+          return JSON.parse(line);
+        } catch (e) {
+          return null;
+        }
+      })
+      .filter((msg) => msg !== null && msg.event === "message");
+
+    console.log(`✅ Encontrados ${messages.length} mensajes recientes`);
+
+    for (const message of messages) {
+      console.log("📨 Procesando mensaje reciente:", message);
+      onMessage(message);
+    }
+  } catch (error) {
+    console.error("❌ Error recuperando mensajes recientes:", error);
+  }
+};
+
+const subscribeToTopic = (topic, onMessage) => {
+  let ws = null;
+  let reconnectTimeout = null;
+  let isClosed = false;
+  let hasCheckedRecent = false;
+
+  const connect = () => {
+    try {
+      console.log("🔄 Conectando a:", topic);
+
+      ws = new WebSocket(`${NTFY_BASE_URL}/${topic}/ws`, [], {
+        headers: {
+          Authorization: "Basic " + btoa(`${NTFY_USERNAME}:${NTFY_PASSWORD}`),
+        },
+      });
+
+      ws.onopen = () => {
+        console.log("🔔 Conectado al topic:", topic);
+
+        // Recuperar mensajes recientes solo la primera vez
+        if (!hasCheckedRecent) {
+          hasCheckedRecent = true;
+          // Esperar 1 segundo antes de recuperar mensajes
+          setTimeout(() => {
+            fetchRecentMessages(topic, onMessage);
+          }, 500);
+        }
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log("📨 Notificación recibida:", data);
+
+          // Solo procesar mensajes reales (event === "message")
+          if (data.event === "message") {
+            console.log("✅ Es un mensaje real, procesando...");
+            onMessage?.(data);
+          } else {
+            console.log("⏭️ Evento de control ignorado:", data.event);
+          }
+        } catch (err) {
+          console.error("❌ Error parseando mensaje:", err);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error("❌ Error en WebSocket:", {
+          message: error.message,
+          type: error.type,
+        });
+      };
+
+      ws.onclose = (event) => {
+        console.log("🔕 WebSocket cerrado:", {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+        });
+
+        // Reconectar solo si no se cerró intencionalmente
+        if (!isClosed && event.code !== 1000) {
+          console.log("🔄 Reconectando en 5 segundos...");
+          reconnectTimeout = setTimeout(connect, 5000);
+        }
+      };
+    } catch (error) {
+      console.error("❌ Error creando WebSocket:", error);
+      if (!isClosed) {
+        reconnectTimeout = setTimeout(connect, 5000);
+      }
+    }
+  };
+
+  // Iniciar conexión
+  connect();
+
+  return {
+    close: () => {
+      isClosed = true;
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      if (ws) {
+        ws.close(1000, "Cierre intencional");
+      }
+      console.log("🔕 Desconectado del topic", topic);
+    },
+  };
+};
+
+// -------------------------
+// INICIALIZADOR DE LA APP
 function AppInitializer({ children }) {
   const router = useRouter();
   const segments = useSegments();
-  const { token, refreshToken, tokenEsValido } = useSession();
+  const { token, userId, tokenEsValido } = useSession();
   const { checkPermissionsAsked } = usePermissions();
   const [isReady, setIsReady] = useState(false);
   const hasNavigated = useRef(false);
 
-  // Cargar fuentes personalizadas e iconos
+  // Cargar fuentes
   const [fontsLoaded] = useFonts({
     RobotoBold: require("../assets/fonts/Roboto-Bold.ttf"),
     RobotoSemiBold: require("../assets/fonts/Roboto-SemiBold.ttf"),
@@ -42,7 +214,7 @@ function AppInitializer({ children }) {
     ...MaterialIcons.font,
   });
 
-  // Ignorar warnings específicos de terceros
+  // Ignorar warnings
   useEffect(() => {
     LogBox.ignoreLogs([
       "Support for defaultProps will be removed",
@@ -51,7 +223,7 @@ function AppInitializer({ children }) {
     ]);
   }, []);
 
-  // Ocultar splash screen cuando las fuentes estén cargadas
+  // Ocultar splash
   useEffect(() => {
     if (fontsLoaded) {
       SplashScreen.hideAsync()
@@ -60,71 +232,98 @@ function AppInitializer({ children }) {
     }
   }, [fontsLoaded]);
 
-  // Navegación inicial basada en estado de autenticación
+  // Navegación inicial
   useEffect(() => {
     if (!isReady || hasNavigated.current) return;
 
     const handleInitialNavigation = async () => {
-      // Determinar si el usuario está autenticado
       // Se considera autenticado si:
       // 1. Tiene un token válido (no expirado), O
       // 2. Tiene ambos tokens (access y refresh) - el interceptor renovará automáticamente si expira
       const isAuthenticated =
         (token && tokenEsValido()) || (token && refreshToken);
 
-      // Detectar en qué grupo de rutas está el usuario
       const inAuthGroup = segments[0] === "(auth)";
       const inTabsGroup = segments[0] === "(tabs)";
       const isWelcome = segments[0] === "welcome" || segments.length === 0;
       const isPermissionsScreen = segments.includes("permissions");
 
-      // Verificar si ya se solicitaron los permisos anteriormente
       const permissionsAsked = await checkPermissionsAsked();
 
-      // Evitar redirecciones innecesarias si ya está en la ruta correcta
       if (isAuthenticated && inTabsGroup && permissionsAsked) {
         hasNavigated.current = true;
         return;
       }
-
-      // Permitir que usuarios autenticados permanezcan en pantalla de permisos
       if (isAuthenticated && isPermissionsScreen) {
         hasNavigated.current = true;
         return;
       }
-
-      // Permitir que usuarios no autenticados permanezcan en welcome o auth
       if (!isAuthenticated && (isWelcome || inAuthGroup)) {
         hasNavigated.current = true;
         return;
       }
 
-      // Realizar navegación según estado de autenticación y permisos
       if (isAuthenticated) {
         if (!permissionsAsked) {
-          // Usuario autenticado pero sin permisos solicitados
           router.replace("/permissions");
         } else {
-          // Usuario autenticado con permisos ya solicitados
           router.replace("/(tabs)/welcome");
         }
       } else {
-        // Usuario no autenticado
         router.replace("/welcome");
       }
 
       hasNavigated.current = true;
     };
 
-    // Delay breve para evitar conflictos con el sistema de rutas de expo-router
     const timer = setTimeout(handleInitialNavigation, 100);
     return () => clearTimeout(timer);
   }, [isReady, token, refreshToken, checkPermissionsAsked]);
 
-  // Mostrar pantalla vacía mientras se inicializa
-  if (!isReady) {
-    return null;
-  }
+  // -------------------------
+  // SUSCRIPCIÓN WEBSOCKET NTFY
+  useEffect(() => {
+    // Esperar a tener token y userId
+    if (!token || !userId) {
+      if (token && !userId) {
+        console.log("⏳ Esperando userId para conectar WebSocket...");
+      }
+      return;
+    }
+
+    const topic = `user_${userId}`;
+    console.log("🚀 Iniciando suscripción a:", topic);
+
+    const subscription = subscribeToTopic(topic, async (message) => {
+      // Extraer título y cuerpo del mensaje
+      const title = message.title || "Nueva notificación";
+      const body = message.message || "Sin descripción";
+
+      console.log("📬 Preparando notificación:", { title, body });
+
+      try {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title,
+            body,
+            data: { topic, ...message },
+            sound: true,
+          },
+          trigger: null,
+        });
+        console.log("✅ Notificación mostrada exitosamente");
+      } catch (error) {
+        console.error("❌ Error mostrando notificación:", error);
+      }
+    });
+
+    return () => {
+      console.log("🧹 Limpiando suscripción...");
+      subscription.close();
+    };
+  }, [token, userId]);
+
+  if (!isReady) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -134,15 +333,14 @@ function AppInitializer({ children }) {
 }
 
 // -------------------------
-// Layout principal de la aplicación
-// -------------------------
+// LAYOUT PRINCIPAL
 export default function Layout() {
   return (
     <SessionProvider>
       <SafeAreaProvider>
         <AppInitializer>
           <Slot />
-          <StatusBar style="dark" translucent={true} />
+          <StatusBar style="dark" translucent />
         </AppInitializer>
       </SafeAreaProvider>
     </SessionProvider>
