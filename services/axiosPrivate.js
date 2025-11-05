@@ -69,6 +69,17 @@ axiosPrivate.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
+        // Si ya hay un refresh en progreso, esperar a que termine
+        if (refreshPromise) {
+          console.log("Esperando a que termine el refresh en progreso...");
+          await refreshPromise;
+
+          // Obtener el nuevo token y reintentar
+          const newToken = await getToken();
+          originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
+          return axiosPrivate(originalRequest);
+        }
+
         const refreshToken = await getRefreshToken();
         const currentToken = await getToken();
 
@@ -78,44 +89,49 @@ axiosPrivate.interceptors.response.use(
           throw new Error("No hay tokens para refresh");
         }
 
-        // Evitar múltiples requests de refresh simultáneos
-        if (!refreshPromise) {
-          refreshPromise = axios.post(
-            `${API_BASE_URL}/users/refresh-token?refresh_token=${refreshToken}`,
-            {},
-            {
-              headers: {
-                Authorization: `Bearer ${currentToken}`,
-                "Content-Type": "application/json",
-              },
-            }
-          );
-        }
-
+        // Crear la promesa de refresh
         console.log("Enviando request de refresh...");
-        const response = await refreshPromise;
-        refreshPromise = null;
+        refreshPromise = (async () => {
+          try {
+            const response = await axios.post(
+              `${API_BASE_URL}/users/refresh-token?refresh_token=${refreshToken}`,
+              {},
+              {
+                headers: {
+                  Authorization: `Bearer ${currentToken}`,
+                  "Content-Type": "application/json",
+                },
+              }
+            );
 
-        const {
-          access_token,
-          refresh_token: newRefreshToken,
-          token_type,
-        } = response.data;
+            const {
+              access_token,
+              refresh_token: newRefreshToken,
+              token_type,
+            } = response.data;
 
-        if (!access_token) {
-          throw new Error("No se recibió nuevo token");
-        }
+            if (!access_token) {
+              throw new Error("No se recibió nuevo token");
+            }
 
-        // Guardar nuevos tokens
-        await saveTokens(
-          access_token,
-          newRefreshToken || refreshToken,
-          token_type
-        );
-        console.log("Tokens actualizados exitosamente");
+            // Guardar nuevos tokens
+            await saveTokens(
+              access_token,
+              newRefreshToken || refreshToken,
+              token_type
+            );
+            console.log("Tokens actualizados exitosamente");
+
+            return access_token;
+          } finally {
+            refreshPromise = null;
+          }
+        })();
+
+        const newAccessToken = await refreshPromise;
 
         // Actualizar el header del request original
-        originalRequest.headers["Authorization"] = `Bearer ${access_token}`;
+        originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
 
         // Reintentar el request original
         return axiosPrivate(originalRequest);
