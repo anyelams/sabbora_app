@@ -29,9 +29,22 @@ export const SessionProvider = ({ children }) => {
   const [userEmail, setUserEmailState] = useState(null);
   const [tokenType, setTokenTypeState] = useState("bearer");
 
-  // -------------------------
-  // OBTENER DATOS DEL USUARIO DESDE EL SERVIDOR
-  // -------------------------
+  const decodificarToken = useCallback(
+    (tokenParam = null) => {
+      const tokenADecodificar = tokenParam || token;
+      if (!tokenADecodificar) return null;
+
+      try {
+        const payload = tokenADecodificar.split(".")[1];
+        return JSON.parse(atob(payload));
+      } catch (error) {
+        console.error("Error decodificando token:", error);
+        return null;
+      }
+    },
+    [token]
+  );
+
   const fetchUserData = useCallback(
     async (userId, tokenParam = null) => {
       const tokenToUse = tokenParam || token;
@@ -55,12 +68,10 @@ export const SessionProvider = ({ children }) => {
 
         const data = await response.json();
 
-        // Guardar nombre completo
         const fullName = `${data.first_name} ${data.first_last_name}`.trim();
         await saveUsername(fullName);
         setUsernameState(fullName);
 
-        // Guardar email
         if (data.email) {
           await saveUserEmail(data.email);
           setUserEmailState(data.email);
@@ -75,9 +86,6 @@ export const SessionProvider = ({ children }) => {
     [token]
   );
 
-  // -------------------------
-  // GUARDAR SESIÓN COMPLETA
-  // -------------------------
   const guardarSesionCompleta = async ({
     token,
     refreshToken = null,
@@ -90,33 +98,28 @@ export const SessionProvider = ({ children }) => {
       throw new Error("Token es requerido");
     }
 
-    // Guardar tokens
     await saveTokens(token, refreshToken, tokenType);
     setTokenState(token);
     setRefreshTokenState(refreshToken);
     setTokenTypeState(tokenType);
 
-    // Si se proporciona userId, hacer fetch de datos completos
+    // Guardar userId una sola vez
     if (userId) {
       await saveUserId(userId);
       setUserIdState(userId);
+      // Fetch de datos del usuario
       await fetchUserData(userId, token);
     } else if (username) {
-      // Si no hay userId pero sí username, guardarlo directamente
       await saveUsername(username);
       setUsernameState(username);
     }
 
-    // Guardar email si se proporciona
     if (email) {
       await saveUserEmail(email);
       setUserEmailState(email);
     }
   };
 
-  // -------------------------
-  // CARGAR SESIÓN INICIAL
-  // -------------------------
   useEffect(() => {
     const cargarSesion = async () => {
       try {
@@ -129,7 +132,6 @@ export const SessionProvider = ({ children }) => {
         if (savedToken) {
           setTokenState(savedToken);
 
-          // Decodificar token para extraer userId como backup
           const tokenPayload = decodificarToken(savedToken);
           if (tokenPayload?.user_id && !savedUserId) {
             setUserIdState(tokenPayload.user_id);
@@ -148,14 +150,10 @@ export const SessionProvider = ({ children }) => {
     };
 
     cargarSesion();
-  }, []);
+  }, [decodificarToken]);
 
-  // -------------------------
-  // CERRAR SESIÓN
-  // -------------------------
   const cerrarSesion = async () => {
     try {
-      // Intentar hacer logout en el servidor si hay refresh token
       if (refreshToken) {
         try {
           const axiosPrivate = (await import("../services/axiosPrivate"))
@@ -163,13 +161,11 @@ export const SessionProvider = ({ children }) => {
           await axiosPrivate.post("/users/logout", {
             refresh_token: refreshToken,
           });
-          console.log("Logout exitoso en el servidor");
         } catch (logoutError) {
           console.error("Error en logout del servidor:", logoutError);
         }
       }
 
-      // Limpiar datos locales siempre
       await clearSessionData();
       setTokenState(null);
       setRefreshTokenState(null);
@@ -177,10 +173,8 @@ export const SessionProvider = ({ children }) => {
       setUserIdState(null);
       setUserEmailState(null);
       setTokenTypeState("bearer");
-      console.log("Sesión cerrada exitosamente");
     } catch (error) {
       console.error("Error en logout:", error);
-      // Intentar limpiar de todos modos
       try {
         await clearSessionData();
         setTokenState(null);
@@ -195,25 +189,6 @@ export const SessionProvider = ({ children }) => {
     }
   };
 
-  // -------------------------
-  // HELPERS
-  // -------------------------
-  const decodificarToken = useCallback(
-    (tokenParam = null) => {
-      const tokenADecodificar = tokenParam || token;
-      if (!tokenADecodificar) return null;
-
-      try {
-        const payload = tokenADecodificar.split(".")[1];
-        return JSON.parse(atob(payload));
-      } catch (error) {
-        console.error("Error decodificando token:", error);
-        return null;
-      }
-    },
-    [token]
-  );
-
   const tokenEsValido = useCallback(() => {
     const claims = decodificarToken();
     if (!claims) return false;
@@ -221,11 +196,7 @@ export const SessionProvider = ({ children }) => {
     return claims.exp > ahora;
   }, [decodificarToken]);
 
-  // -------------------------
-  // VALOR DEL CONTEXTO
-  // -------------------------
   const contextValue = {
-    // Estados
     token,
     refreshToken,
     tokenType,
@@ -233,13 +204,9 @@ export const SessionProvider = ({ children }) => {
     userId,
     userEmail,
     setUsername: setUsernameState,
-
-    // Funciones principales
     fetchUserData,
     guardarSesionCompleta,
     cerrarSesion,
-
-    // Helpers
     decodificarToken,
     tokenEsValido,
   };
