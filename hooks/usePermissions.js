@@ -20,6 +20,52 @@ Notifications.setNotificationHandler({
   }),
 });
 
+// ==================== HELPER: BUSCAR CITY ID ====================
+/**
+ * Busca el cityId en la API de CountryStateCity usando nombre de ciudad y departamento
+ */
+async function findCityId(cityName, departmentCode, countryCode = "CO") {
+  try {
+    if (!cityName || !departmentCode) {
+      console.log("Faltan datos para buscar cityId:", {
+        cityName,
+        departmentCode,
+      });
+      return null;
+    }
+
+    const API_KEY = "SThkSGZBV3Z4amdiSVduRlp0SkE4MEpwMnU4UWhpM2xOdDJERE5uWA==";
+    const url = `https://api.countrystatecity.in/v1/countries/${countryCode}/states/${departmentCode}/cities`;
+
+    const response = await fetch(url, {
+      headers: { "X-CSCAPI-KEY": API_KEY },
+    });
+
+    if (!response.ok) {
+      console.warn("Error buscando ciudades:", response.status);
+      return null;
+    }
+
+    const cities = await response.json();
+
+    // Buscar ciudad (insensible a mayúsculas/minúsculas)
+    const city = cities.find(
+      (c) => c.name.toLowerCase() === cityName.toLowerCase()
+    );
+
+    if (city) {
+      console.log("City ID encontrado:", city.id, "para", cityName);
+      return city.id;
+    }
+
+    console.log("No se encontró cityId para:", cityName);
+    return null;
+  } catch (error) {
+    console.error("Error buscando cityId:", error);
+    return null;
+  }
+}
+
 // ==================== HELPER: GEOCODING ====================
 /**
  * Obtiene códigos ISO2 y nombres de ubicación usando Nominatim
@@ -197,7 +243,7 @@ export function usePermissions() {
         accuracy: location.coords.accuracy,
       };
 
-      console.log("📍 GPS obtenido:", coords);
+      console.log("GPS obtenido:", coords);
 
       // Hacer reverse geocoding con Expo
       let locationInfo = { ...coords };
@@ -233,10 +279,24 @@ export function usePermissions() {
             hasCoordinates: true,
           };
 
-          console.log("📍 Ubicación completa:", locationInfo);
+          // Buscar cityId para filtrar restaurantes por ciudad
+          if (locationInfo.city && locationInfo.departmentCode) {
+            const cityId = await findCityId(
+              locationInfo.city,
+              locationInfo.departmentCode,
+              locationInfo.countryCode
+            );
+
+            if (cityId) {
+              locationInfo.cityId = cityId;
+              console.log("cityId agregado a ubicación GPS:", cityId);
+            }
+          }
+
+          console.log("Ubicación completa:", locationInfo);
         }
       } catch (geocodeError) {
-        console.warn("⚠️ Error en geocoding:", geocodeError);
+        console.warn("Error en geocoding:", geocodeError);
         // Continuar con coordenadas básicas
         locationInfo = {
           ...coords,
@@ -252,7 +312,7 @@ export function usePermissions() {
 
       return locationInfo;
     } catch (error) {
-      console.error("❌ Error obteniendo ubicación GPS:", error);
+      console.error("Error obteniendo ubicación GPS:", error);
       setError("No se pudo obtener tu ubicación");
       return null;
     } finally {
@@ -276,7 +336,7 @@ export function usePermissions() {
           locationData
         );
 
-        console.log("📍 Ubicación manual guardada:", enrichedLocation);
+        console.log("Ubicación manual guardada:", enrichedLocation);
 
         // Guardar
         await saveToStorage(STORAGE_KEYS.USER_LOCATION, enrichedLocation);
@@ -284,7 +344,7 @@ export function usePermissions() {
 
         return enrichedLocation;
       } catch (error) {
-        console.error("❌ Error guardando ubicación manual:", error);
+        console.error("Error guardando ubicación manual:", error);
         setError("No se pudo guardar tu ubicación");
         return null;
       } finally {
@@ -299,7 +359,7 @@ export function usePermissions() {
     const saved = await getFromStorage(STORAGE_KEYS.USER_LOCATION);
     if (saved) {
       setUserLocation(saved);
-      console.log("📍 Ubicación cargada desde storage:", saved);
+      console.log("Ubicación cargada desde storage:", saved);
     }
     return saved;
   }, [getFromStorage]);
@@ -309,7 +369,7 @@ export function usePermissions() {
     const success = await removeFromStorage(STORAGE_KEYS.USER_LOCATION);
     if (success) {
       setUserLocation(null);
-      console.log("📍 Ubicación eliminada");
+      console.log("Ubicación eliminada");
     }
     return success;
   }, [removeFromStorage]);
@@ -352,12 +412,12 @@ export function usePermissions() {
           loadSavedLocation(),
         ]);
 
-        console.log("✅ Hook inicializado:", {
+        console.log("Hook inicializado:", {
           permissions: currentPermissions,
           location: savedLocation,
         });
       } catch (error) {
-        console.error("❌ Error inicializando hook:", error);
+        console.error("Error inicializando hook:", error);
       } finally {
         setIsLoading(false);
       }
