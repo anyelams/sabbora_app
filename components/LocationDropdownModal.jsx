@@ -12,6 +12,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { colors } from "../config/theme";
+import { typography } from "../config/typography";
 import {
   getCities,
   getCountries,
@@ -179,18 +181,18 @@ export default function LocationSearchModal({
     let title = "Selecciona tu país";
     if (step === 2) title = "Selecciona tu departamento";
     if (step === 3) title = "Selecciona tu ciudad";
-    if (step === 4) title = "Dirección (opcional)";
+    if (step === 4) title = "Dirección";
 
     return (
       <View style={styles.header}>
         {step > 1 && (
           <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={22} color="#000" />
+            <Ionicons name="arrow-back" size={22} color={colors.text} />
           </TouchableOpacity>
         )}
         <Text style={styles.title}>{title}</Text>
         <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-          <Ionicons name="close" size={22} color="#999" />
+          <Ionicons name="close" size={22} color={colors.textSec} />
         </TouchableOpacity>
       </View>
     );
@@ -201,7 +203,7 @@ export default function LocationSearchModal({
 
     return (
       <View style={styles.breadcrumb}>
-        <Ionicons name="location" size={14} color="#666" />
+        <Ionicons name="location" size={14} color={colors.textSec} />
         <Text style={styles.breadcrumbText} numberOfLines={1}>
           {selectedCountry?.name}
           {selectedState && ` › ${selectedState.name}`}
@@ -226,11 +228,15 @@ export default function LocationSearchModal({
             </Text>
 
             <View style={styles.inputContainer}>
-              <Ionicons name="location-outline" size={18} color="#999" />
+              <Ionicons
+                name="location-outline"
+                size={18}
+                color={colors.textSec}
+              />
               <TextInput
                 style={styles.addressInput}
                 placeholder="Ej: Calle 123 #45-67"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.textSec}
                 value={address}
                 onChangeText={setAddress}
                 multiline
@@ -255,14 +261,23 @@ export default function LocationSearchModal({
                 onPress={handleConfirm}
                 disabled={!address.trim()}
               >
-                <Text style={styles.buttonPrimaryText}>
+                <Text
+                  style={[
+                    styles.buttonPrimaryText,
+                    !address.trim() && styles.buttonPrimaryTextDisabled,
+                  ]}
+                >
                   {address.trim() ? "Confirmar ubicación" : "Ingresa dirección"}
                 </Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.infoBox}>
-              <Ionicons name="information-circle" size={18} color="#007AFF" />
+              <Ionicons
+                name="information-circle"
+                size={18}
+                color={colors.primary}
+              />
               <Text style={styles.infoText}>
                 Si no ingresas una dirección, usaremos el centro de tu ciudad
                 como referencia
@@ -288,7 +303,9 @@ export default function LocationSearchModal({
                     <Ionicons
                       name="navigate"
                       size={18}
-                      color={hasLocationPermission ? "#007AFF" : "#999"}
+                      color={
+                        hasLocationPermission ? colors.primary : colors.textSec
+                      }
                     />
                   </View>
                   <View style={styles.gpsContent}>
@@ -304,7 +321,9 @@ export default function LocationSearchModal({
                   <Ionicons
                     name="chevron-forward"
                     size={18}
-                    color={hasLocationPermission ? "#007AFF" : "#999"}
+                    color={
+                      hasLocationPermission ? colors.primary : colors.textSec
+                    }
                   />
                 </TouchableOpacity>
 
@@ -317,13 +336,13 @@ export default function LocationSearchModal({
             )}
 
             <View style={styles.searchContainer}>
-              <Ionicons name="search" size={18} color="#999" />
+              <Ionicons name="search" size={18} color={colors.textSec} />
               <TextInput
                 style={styles.searchInput}
                 placeholder={`Buscar ${
                   step === 1 ? "país" : step === 2 ? "departamento" : "ciudad"
                 }...`}
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.textSec}
                 value={
                   step === 1
                     ? countrySearch
@@ -343,7 +362,7 @@ export default function LocationSearchModal({
 
             {loading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#007AFF" />
+                <ActivityIndicator size="large" color={colors.primary} />
                 <Text style={styles.loadingText}>Cargando...</Text>
               </View>
             ) : (
@@ -357,7 +376,11 @@ export default function LocationSearchModal({
                       activeOpacity={0.6}
                     >
                       <Text style={styles.listItemText}>{country.name}</Text>
-                      <Ionicons name="chevron-forward" size={18} color="#ccc" />
+                      <Ionicons
+                        name="chevron-forward"
+                        size={18}
+                        color={colors.border}
+                      />
                     </TouchableOpacity>
                   ))}
 
@@ -370,7 +393,11 @@ export default function LocationSearchModal({
                       activeOpacity={0.6}
                     >
                       <Text style={styles.listItemText}>{state.name}</Text>
-                      <Ionicons name="chevron-forward" size={18} color="#ccc" />
+                      <Ionicons
+                        name="chevron-forward"
+                        size={18}
+                        color={colors.border}
+                      />
                     </TouchableOpacity>
                   ))}
 
@@ -383,7 +410,11 @@ export default function LocationSearchModal({
                       activeOpacity={0.6}
                     >
                       <Text style={styles.listItemText}>{city.name}</Text>
-                      <Ionicons name="chevron-forward" size={18} color="#ccc" />
+                      <Ionicons
+                        name="chevron-forward"
+                        size={18}
+                        color={colors.border}
+                      />
                     </TouchableOpacity>
                   ))}
               </ScrollView>
@@ -398,7 +429,7 @@ export default function LocationSearchModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FAFAFA",
+    backgroundColor: colors.base,
   },
   header: {
     flexDirection: "row",
@@ -406,9 +437,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 14,
-    backgroundColor: "#FFF",
+    backgroundColor: colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: "#F0F0F0",
+    borderBottomColor: colors.lightGray,
   },
   backButton: {
     width: 36,
@@ -418,12 +449,10 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   title: {
+    ...typography.semibold.large,
     flex: 1,
-    fontSize: 17,
-    fontWeight: "600",
-    color: "#000",
+    color: colors.text,
     textAlign: "center",
-    letterSpacing: -0.3,
   },
   closeButton: {
     width: 36,
@@ -437,14 +466,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 10,
-    backgroundColor: "#F8F9FA",
+    backgroundColor: colors.lightGray,
     gap: 6,
   },
   breadcrumbText: {
+    ...typography.medium.small,
     flex: 1,
-    fontSize: 12,
-    color: "#666",
-    fontWeight: "500",
+    color: colors.textSec,
   },
   gpsSection: {
     paddingHorizontal: 16,
@@ -454,32 +482,32 @@ const styles = StyleSheet.create({
   gpsButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F0F8FF",
+    backgroundColor: colors.white,
     padding: 14,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: "#007AFF",
+    borderColor: colors.primary,
     gap: 12,
-    shadowColor: "#007AFF",
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 2,
   },
   gpsButtonDisabled: {
-    backgroundColor: "#F5F5F5",
-    borderColor: "#E5E5E5",
-    shadowColor: "#000",
+    backgroundColor: colors.lightGray,
+    borderColor: colors.border,
+    shadowColor: colors.darkGray,
     shadowOpacity: 0,
   },
   gpsIconCircle: {
     width: 36,
     height: 36,
-    backgroundColor: "#FFF",
+    backgroundColor: colors.white,
     borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
+    shadowColor: colors.darkGray,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -489,16 +517,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   gpsTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#000",
+    ...typography.semibold.medium,
+    color: colors.text,
     marginBottom: 2,
-    letterSpacing: -0.2,
   },
   gpsDescription: {
-    fontSize: 12,
-    color: "#666",
-    fontWeight: "500",
+    ...typography.medium.small,
+    color: colors.textSec,
   },
   divider: {
     flexDirection: "row",
@@ -509,12 +534,11 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: "#E5E5E5",
+    backgroundColor: colors.border,
   },
   dividerText: {
-    fontSize: 12,
-    color: "#999",
-    fontWeight: "500",
+    ...typography.medium.small,
+    color: colors.textSec,
   },
   searchContainer: {
     flexDirection: "row",
@@ -523,16 +547,16 @@ const styles = StyleSheet.create({
     marginVertical: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: "#FFF",
+    backgroundColor: colors.white,
     borderRadius: 14,
     gap: 10,
     borderWidth: 1,
-    borderColor: "#E5E5E5",
+    borderColor: colors.border,
   },
   searchInput: {
+    ...typography.regular.large,
     flex: 1,
-    fontSize: 15,
-    color: "#000",
+    color: colors.text,
     paddingVertical: 0,
   },
   loadingContainer: {
@@ -541,14 +565,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   loadingText: {
+    ...typography.medium.medium,
     marginTop: 12,
-    fontSize: 14,
-    color: "#666",
-    fontWeight: "500",
+    color: colors.textSec,
   },
   list: {
     flex: 1,
-    backgroundColor: "#FFF",
+    backgroundColor: colors.white,
     marginHorizontal: 16,
     borderRadius: 16,
     marginBottom: 16,
@@ -560,41 +583,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 13,
     borderBottomWidth: 1,
-    borderBottomColor: "#F5F5F5",
+    borderBottomColor: colors.lightGray,
   },
   listItemText: {
-    fontSize: 15,
-    color: "#000",
-    fontWeight: "500",
-    letterSpacing: -0.2,
+    ...typography.medium.medium,
+    color: colors.text,
   },
   addressContainer: {
     flex: 1,
     padding: 20,
   },
   subtitle: {
-    fontSize: 13,
-    color: "#666",
+    ...typography.regular.regular,
+    color: colors.textSec,
     marginBottom: 16,
     lineHeight: 19,
-    fontWeight: "500",
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "flex-start",
-    backgroundColor: "#FFF",
+    backgroundColor: colors.white,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
     gap: 10,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#E5E5E5",
+    borderColor: colors.border,
   },
   addressInput: {
+    ...typography.regular.large,
     flex: 1,
-    fontSize: 15,
-    color: "#000",
+    color: colors.text,
     minHeight: 50,
     textAlignVertical: "top",
     paddingVertical: 0,
@@ -609,48 +629,43 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   buttonPrimary: {
-    backgroundColor: "#000",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  buttonDisabled: {
-    backgroundColor: "#E5E5E5",
-    shadowOpacity: 0,
+    backgroundColor: colors.primary,
   },
   buttonPrimaryText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#FFF",
-    letterSpacing: -0.2,
+    ...typography.semibold.medium,
+    color: colors.white,
   },
-  buttonSecondary: {
-    backgroundColor: "#F5F5F5",
+  buttonDisabled: {
+    backgroundColor: "#d9d9d92a",
     borderWidth: 1,
-    borderColor: "#E5E5E5",
+    borderColor: "#bfbfbf3e",
+  },
+  buttonPrimaryTextDisabled: {
+    color: "#8c8c8c9e",
+  },
+
+  buttonSecondary: {
+    backgroundColor: colors.lightGray,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   buttonSecondaryText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#000",
-    letterSpacing: -0.2,
+    ...typography.semibold.medium,
+    color: colors.text,
   },
   infoBox: {
     flexDirection: "row",
-    backgroundColor: "#F0F8FF",
+    backgroundColor: colors.white,
     padding: 14,
     borderRadius: 14,
     gap: 10,
     borderWidth: 1,
-    borderColor: "#D4EBFF",
+    borderColor: colors.border,
   },
   infoText: {
+    ...typography.regular.small,
     flex: 1,
-    fontSize: 12,
-    color: "#666",
+    color: colors.textSec,
     lineHeight: 17,
-    fontWeight: "500",
   },
 });
