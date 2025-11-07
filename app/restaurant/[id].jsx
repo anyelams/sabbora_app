@@ -648,6 +648,16 @@ export default function RestaurantDetailScreen() {
     );
   };
 
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (!restaurant) {
     return (
       <SafeAreaView style={styles.container}>
