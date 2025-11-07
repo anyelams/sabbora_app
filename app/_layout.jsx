@@ -56,7 +56,7 @@ const NTFY_PASSWORD = "Serveria.2025";
 // Función para recuperar mensajes recientes
 const fetchRecentMessages = async (topic, onMessage) => {
   try {
-    console.log("📥 Recuperando mensajes recientes de:", topic);
+    console.log("Recuperando mensajes recientes de:", topic);
     const auth = btoa(`${NTFY_USERNAME}:${NTFY_PASSWORD}`);
     const response = await fetch(
       `${NTFY_BASE_URL_HTTP}/${topic}/json?poll=1&since=10s`,
@@ -89,14 +89,14 @@ const fetchRecentMessages = async (topic, onMessage) => {
       })
       .filter((msg) => msg !== null && msg.event === "message");
 
-    console.log(`✅ Encontrados ${messages.length} mensajes recientes`);
+    console.log(`Encontrados ${messages.length} mensajes recientes`);
 
     for (const message of messages) {
-      console.log("📨 Procesando mensaje reciente:", message);
+      console.log("Procesando mensaje reciente:", message);
       onMessage(message);
     }
   } catch (error) {
-    console.error("❌ Error recuperando mensajes recientes:", error);
+    console.error("Error recuperando mensajes recientes:", error);
   }
 };
 
@@ -108,7 +108,7 @@ const subscribeToTopic = (topic, onMessage) => {
 
   const connect = () => {
     try {
-      console.log("🔄 Conectando a:", topic);
+      console.log("Conectando a:", topic);
 
       ws = new WebSocket(`${NTFY_BASE_URL}/${topic}/ws`, [], {
         headers: {
@@ -117,7 +117,7 @@ const subscribeToTopic = (topic, onMessage) => {
       });
 
       ws.onopen = () => {
-        console.log("🔔 Conectado al topic:", topic);
+        console.log("Conectado al topic:", topic);
 
         // Recuperar mensajes recientes solo la primera vez
         if (!hasCheckedRecent) {
@@ -132,29 +132,29 @@ const subscribeToTopic = (topic, onMessage) => {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log("📨 Notificación recibida:", data);
+          console.log("Notificación recibida:", data);
 
           // Solo procesar mensajes reales (event === "message")
           if (data.event === "message") {
-            console.log("✅ Es un mensaje real, procesando...");
+            console.log("Es un mensaje real, procesando...");
             onMessage?.(data);
           } else {
-            console.log("⏭️ Evento de control ignorado:", data.event);
+            console.log("Evento de control ignorado:", data.event);
           }
         } catch (err) {
-          console.error("❌ Error parseando mensaje:", err);
+          console.error("Error parseando mensaje:", err);
         }
       };
 
       ws.onerror = (error) => {
-        console.error("❌ Error en WebSocket:", {
+        console.error("Error en WebSocket:", {
           message: error.message,
           type: error.type,
         });
       };
 
       ws.onclose = (event) => {
-        console.log("🔕 WebSocket cerrado:", {
+        console.log("WebSocket cerrado:", {
           code: event.code,
           reason: event.reason,
           wasClean: event.wasClean,
@@ -162,12 +162,12 @@ const subscribeToTopic = (topic, onMessage) => {
 
         // Reconectar solo si no se cerró intencionalmente
         if (!isClosed && event.code !== 1000) {
-          console.log("🔄 Reconectando en 5 segundos...");
+          console.log("Reconectando en 5 segundos...");
           reconnectTimeout = setTimeout(connect, 5000);
         }
       };
     } catch (error) {
-      console.error("❌ Error creando WebSocket:", error);
+      console.error("Error creando WebSocket:", error);
       if (!isClosed) {
         reconnectTimeout = setTimeout(connect, 5000);
       }
@@ -186,7 +186,7 @@ const subscribeToTopic = (topic, onMessage) => {
       if (ws) {
         ws.close(1000, "Cierre intencional");
       }
-      console.log("🔕 Desconectado del topic", topic);
+      console.log("Desconectado del topic", topic);
     },
   };
 };
@@ -196,7 +196,7 @@ const subscribeToTopic = (topic, onMessage) => {
 function AppInitializer({ children }) {
   const router = useRouter();
   const segments = useSegments();
-  const { token, userId, tokenEsValido } = useSession();
+  const { token, userId, tokenEsValido, refreshToken } = useSession();
   const { checkPermissionsAsked } = usePermissions();
   const [isReady, setIsReady] = useState(false);
   const hasNavigated = useRef(false);
@@ -237,9 +237,6 @@ function AppInitializer({ children }) {
     if (!isReady || hasNavigated.current) return;
 
     const handleInitialNavigation = async () => {
-      // Se considera autenticado si:
-      // 1. Tiene un token válido (no expirado), O
-      // 2. Tiene ambos tokens (access y refresh) - el interceptor renovará automáticamente si expira
       const isAuthenticated =
         (token && tokenEsValido()) || (token && refreshToken);
 
