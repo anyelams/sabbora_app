@@ -19,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import CustomButton from "../../components/CustomButton";
 import { colors } from "../../config/theme";
 import { typography } from "../../config/typography";
+import { useSession } from "../../context/SessionContext";
 import axiosPrivate from "../../services/axiosPrivate";
 
 const { width } = Dimensions.get("window");
@@ -29,7 +30,7 @@ const TABS = ["Acerca", "Menu", "Galería", "Reseñas"];
 export default function RestaurantDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-
+  const { userId } = useSession();
   const [activeTab, setActiveTab] = useState("Acerca");
   const [restaurant, setRestaurant] = useState(null);
   const [restaurantInfo, setRestaurantInfo] = useState(null);
@@ -584,6 +585,23 @@ export default function RestaurantDetailScreen() {
                               </Text>
                             </View>
                           </View>
+                          {/* Botón de editar si es mi reseña */}
+                          {review.user?.id === parseInt(userId) && (
+                            <TouchableOpacity
+                              style={styles.editReviewButton}
+                              onPress={() =>
+                                router.push(
+                                  `/review/edit?reviewId=${review.id}&locationId=${id}`
+                                )
+                              }
+                            >
+                              <Ionicons
+                                name="create-outline"
+                                size={20}
+                                color={colors.primary}
+                              />
+                            </TouchableOpacity>
+                          )}
                         </View>
 
                         {review.review_text && (
@@ -1566,5 +1584,9 @@ const styles = StyleSheet.create({
   modalCounterText: {
     ...typography.semibold.medium,
     color: colors.white,
+  },
+  editReviewButton: {
+    padding: 8,
+    marginLeft: 8,
   },
 });
