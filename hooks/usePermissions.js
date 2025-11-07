@@ -1,5 +1,4 @@
 // hooks/usePermissions.js
-// Hook consolidado que maneja TODOS los permisos y ubicación
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
@@ -21,9 +20,6 @@ Notifications.setNotificationHandler({
 });
 
 // ==================== HELPER: BUSCAR CITY ID ====================
-/**
- * Busca el cityId en la API de CountryStateCity usando nombre de ciudad y departamento
- */
 async function findCityId(cityName, departmentCode, countryCode = "CO") {
   try {
     if (!cityName || !departmentCode) {
@@ -47,8 +43,6 @@ async function findCityId(cityName, departmentCode, countryCode = "CO") {
     }
 
     const cities = await response.json();
-
-    // Buscar ciudad (insensible a mayúsculas/minúsculas)
     const city = cities.find(
       (c) => c.name.toLowerCase() === cityName.toLowerCase()
     );
@@ -67,9 +61,6 @@ async function findCityId(cityName, departmentCode, countryCode = "CO") {
 }
 
 // ==================== HELPER: GEOCODING ====================
-/**
- * Obtiene códigos ISO2 y nombres de ubicación usando Nominatim
- */
 async function reverseGeocode(latitude, longitude) {
   try {
     const response = await fetch(
@@ -90,8 +81,6 @@ async function reverseGeocode(latitude, longitude) {
 
     const fullRegionCode = data.address["ISO3166-2-lvl4"];
     const departmentCode = fullRegionCode?.split("-")[1] || null;
-
-    // Priorizar 'county' para municipios en Colombia
     const cityName =
       data.address.county ||
       data.address.city ||
@@ -114,7 +103,6 @@ async function reverseGeocode(latitude, longitude) {
 
 // ==================== HOOK PRINCIPAL ====================
 export function usePermissions() {
-  // Estados
   const [permissions, setPermissions] = useState({
     location: false,
     notifications: false,
@@ -129,6 +117,7 @@ export function usePermissions() {
   const saveToStorage = useCallback(async (key, value) => {
     try {
       await AsyncStorage.setItem(key, JSON.stringify(value));
+      console.log(`Guardado en storage (${key}):`, value);
       return true;
     } catch (error) {
       console.error(`Error guardando ${key}:`, error);
@@ -140,7 +129,9 @@ export function usePermissions() {
   const getFromStorage = useCallback(async (key) => {
     try {
       const value = await AsyncStorage.getItem(key);
-      return value ? JSON.parse(value) : null;
+      const parsed = value ? JSON.parse(value) : null;
+      console.log(`Leído de storage (${key}):`, parsed);
+      return parsed;
     } catch (error) {
       console.error(`Error obteniendo ${key}:`, error);
       return null;
@@ -150,6 +141,7 @@ export function usePermissions() {
   const removeFromStorage = useCallback(async (key) => {
     try {
       await AsyncStorage.removeItem(key);
+      console.log(`Eliminado de storage: ${key}`);
       return true;
     } catch (error) {
       console.error(`Error eliminando ${key}:`, error);
@@ -177,7 +169,7 @@ export function usePermissions() {
     } catch (error) {
       console.error("Error verificando permisos:", error);
       setError("No se pudieron verificar los permisos");
-      return permissions; // Retornar estado anterior
+      return permissions;
     }
   }, [permissions]);
 
@@ -223,7 +215,6 @@ export function usePermissions() {
   // ==================== UBICACIÓN: GPS ====================
   const getCurrentLocation = useCallback(async () => {
     try {
-      // Verificar permiso primero
       const { status } = await Location.getForegroundPermissionsAsync();
       if (status !== "granted") {
         console.log("Permiso de ubicación no concedido");
@@ -232,7 +223,6 @@ export function usePermissions() {
 
       setIsLoading(true);
 
-      // Obtener coordenadas GPS
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
@@ -245,7 +235,6 @@ export function usePermissions() {
 
       console.log("GPS obtenido:", coords);
 
-      // Hacer reverse geocoding con Expo
       let locationInfo = { ...coords };
 
       try {
@@ -259,27 +248,22 @@ export function usePermissions() {
 
           locationInfo = {
             ...coords,
-            // Información de ciudad (prioriza Nominatim)
             city:
               nominatimData?.city ||
               address.city ||
               address.district ||
               "Ubicación desconocida",
             address: address.street || "",
-            // Información de país
             country: nominatimData?.country || address.country || "Colombia",
             countryCode:
               nominatimData?.countryCode || address.isoCountryCode || "CO",
-            // Información de departamento
             department: nominatimData?.state || address.region || "",
             departmentCode: nominatimData?.departmentCode || "",
-            // Metadata
             timestamp: new Date().toISOString(),
             source: "gps",
             hasCoordinates: true,
           };
 
-          // Buscar cityId para filtrar restaurantes por ciudad
           if (locationInfo.city && locationInfo.departmentCode) {
             const cityId = await findCityId(
               locationInfo.city,
@@ -289,15 +273,14 @@ export function usePermissions() {
 
             if (cityId) {
               locationInfo.cityId = cityId;
-              console.log("cityId agregado a ubicación GPS:", cityId);
+              console.log("cityId agregado:", cityId);
             }
           }
 
-          console.log("Ubicación completa:", locationInfo);
+          console.log("Ubicación GPS completa:", locationInfo);
         }
       } catch (geocodeError) {
         console.warn("Error en geocoding:", geocodeError);
-        // Continuar con coordenadas básicas
         locationInfo = {
           ...coords,
           timestamp: new Date().toISOString(),
@@ -306,9 +289,18 @@ export function usePermissions() {
         };
       }
 
-      // Guardar ubicación
-      await saveToStorage(STORAGE_KEYS.USER_LOCATION, locationInfo);
-      setUserLocation(locationInfo);
+      // ESPERAR a que se guarde antes de actualizar el estado
+      const saved = await saveToStorage(
+        STORAGE_KEYS.USER_LOCATION,
+        locationInfo
+      );
+
+      if (saved) {
+        setUserLocation(locationInfo);
+        console.log("Ubicación GPS guardada y actualizada");
+      } else {
+        console.error("No se pudo guardar la ubicación GPS");
+      }
 
       return locationInfo;
     } catch (error) {
@@ -326,21 +318,28 @@ export function usePermissions() {
       try {
         setIsLoading(true);
 
-        // Importar dinámicamente el servicio de geocoding
         const { enrichLocationWithCoordinates } = await import(
           "../services/geocodingService"
         );
 
-        // Enriquecer con coordenadas
         const enrichedLocation = await enrichLocationWithCoordinates(
           locationData
         );
 
-        console.log("Ubicación manual guardada:", enrichedLocation);
+        console.log("Ubicación manual preparada:", enrichedLocation);
 
-        // Guardar
-        await saveToStorage(STORAGE_KEYS.USER_LOCATION, enrichedLocation);
-        setUserLocation(enrichedLocation);
+        // ESPERAR a que se guarde antes de actualizar el estado
+        const saved = await saveToStorage(
+          STORAGE_KEYS.USER_LOCATION,
+          enrichedLocation
+        );
+
+        if (saved) {
+          setUserLocation(enrichedLocation);
+          console.log("Ubicación manual guardada y actualizada");
+        } else {
+          console.error("No se pudo guardar la ubicación manual");
+        }
 
         return enrichedLocation;
       } catch (error) {
@@ -359,7 +358,7 @@ export function usePermissions() {
     const saved = await getFromStorage(STORAGE_KEYS.USER_LOCATION);
     if (saved) {
       setUserLocation(saved);
-      console.log("Ubicación cargada desde storage:", saved);
+      console.log("Ubicación cargada desde storage");
     }
     return saved;
   }, [getFromStorage]);
@@ -406,7 +405,6 @@ export function usePermissions() {
     const initialize = async () => {
       setIsLoading(true);
       try {
-        // Cargar permisos y ubicación en paralelo
         const [currentPermissions, savedLocation] = await Promise.all([
           checkPermissions(),
           loadSavedLocation(),
@@ -424,35 +422,26 @@ export function usePermissions() {
     };
 
     initialize();
-  }, []); // Solo al montar
+  }, []); // Sin dependencias para evitar loops
 
   // ==================== RETURN ====================
   return {
-    // Estado
     permissions,
     isLoading,
     userLocation,
     error,
-
-    // Permisos
     checkPermissions,
     requestLocationPermission,
     requestNotificationPermission,
     ensureLocationPermission,
     ensureNotificationPermission,
-
-    // Ubicación
     getCurrentLocation,
     saveManualLocation,
     loadSavedLocation,
     clearLocation,
-
-    // Estado de permisos preguntados
     markPermissionsAsked,
     checkPermissionsAsked,
     resetPermissionsAsked,
-
-    // Helpers booleanos
     hasLocationPermission: permissions.location,
     hasNotificationPermission: permissions.notifications,
     hasLocation: !!userLocation,
