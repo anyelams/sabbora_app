@@ -194,23 +194,20 @@ const ReservaDetalle = () => {
                 </Text>
               </View>
             )}
-          </View>
 
-          {reserva.occasion_type && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Ocasión</Text>
-              <View style={styles.occasionCard}>
-                <Text style={styles.occasionName}>
+            {reserva.occasion_type && (
+              <View style={styles.infoRow}>
+                <Ionicons
+                  name="gift-outline"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={styles.infoText}>
                   {reserva.occasion_type.name}
                 </Text>
-                {reserva.occasion_type.description && (
-                  <Text style={styles.occasionDesc}>
-                    {reserva.occasion_type.description}
-                  </Text>
-                )}
               </View>
-            </View>
-          )}
+            )}
+          </View>
 
           {menuItemsDetails.length > 0 && (
             <View style={styles.section}>
@@ -335,20 +332,6 @@ const styles = StyleSheet.create({
   },
   infoText: {
     ...typography.regular.medium,
-    color: colors.textSec,
-  },
-  occasionCard: {
-    backgroundColor: colors.base,
-    padding: 16,
-    borderRadius: 12,
-  },
-  occasionName: {
-    ...typography.semibold.medium,
-    color: colors.darkGray,
-    marginBottom: 4,
-  },
-  occasionDesc: {
-    ...typography.regular.small,
     color: colors.textSec,
   },
   menuItem: {
