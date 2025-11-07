@@ -22,7 +22,7 @@ import { typography } from "../../config/typography";
 import { useSession } from "../../context/SessionContext";
 import axiosPrivate from "../../services/axiosPrivate";
 
-// ⭐ Componente de estrella personalizada con relleno parcial
+// Componente de estrella personalizada con relleno parcial
 const PartialStar = ({ fillPercentage, size = 46 }) => {
   return (
     <View style={{ width: size, height: size, position: "relative" }}>
@@ -58,7 +58,7 @@ export default function CreateReviewScreen() {
   const [loading, setLoading] = useState(false);
 
   // ------------------------
-  // ⭐ RATING CON GESTO
+  // RATING CON GESTO
   // ------------------------
   const totalStars = 5;
   const starSize = 46;
@@ -72,14 +72,14 @@ export default function CreateReviewScreen() {
         const totalWidth = totalStars * starWidth;
         const relativeX = Math.max(0, Math.min(gesture.moveX, totalWidth));
         const value = (relativeX / totalWidth) * totalStars;
-        const rounded = Math.round(value * 4) / 4;
+        const rounded = Math.round(value * 2) / 2;
         setRating(rounded);
       },
     })
   ).current;
 
   // ------------------------
-  // 📸 IMÁGENES
+  // IMÁGENES
   // ------------------------
   const pickImage = async () => {
     if (selectedImages.length >= 5) {
@@ -104,7 +104,7 @@ export default function CreateReviewScreen() {
   };
 
   // ------------------------
-  // 📤 ENVIAR
+  // ENVIAR
   // ------------------------
   const handleSubmit = async () => {
     if (rating === 0) {
@@ -163,7 +163,7 @@ export default function CreateReviewScreen() {
   };
 
   // ------------------------
-  // 🧩 UI PRINCIPAL
+  // UI PRINCIPAL
   // ------------------------
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -188,11 +188,11 @@ export default function CreateReviewScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          {/* 🔶 Calificación */}
+          {/*  Calificación */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Tu calificación</Text>
 
-            {/* 🌟 Estrellas con gesto y relleno parcial */}
+            {/*  Estrellas con gesto y relleno parcial */}
             <View
               {...panResponder.panHandlers}
               style={{
@@ -212,7 +212,7 @@ export default function CreateReviewScreen() {
 
             {rating > 0 && (
               <View style={styles.ratingTextContainer}>
-                <Text style={styles.ratingNumber}>{rating.toFixed(2)}</Text>
+                <Text style={styles.ratingNumber}>{rating.toFixed(1)}</Text>
                 <Text style={styles.ratingLabel}>
                   {rating < 2 && "Malo"}
                   {rating >= 2 && rating < 3 && "Regular"}
@@ -224,7 +224,7 @@ export default function CreateReviewScreen() {
             )}
           </View>
 
-          {/* 🔹 Texto */}
+          {/*  Texto */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               Cuéntanos tu experiencia{" "}
@@ -244,7 +244,7 @@ export default function CreateReviewScreen() {
             <Text style={styles.charCount}>{reviewText.length} / 500</Text>
           </View>
 
-          {/* 🔹 Fotos */}
+          {/* Fotos */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               Agrega fotos <Text style={styles.optional}>(opcional)</Text>
@@ -290,7 +290,7 @@ export default function CreateReviewScreen() {
             )}
           </View>
 
-          {/* 🔹 Botón */}
+          {/*  Botón */}
           <View style={styles.submitButtonContainer}>
             <CustomButton
               text={loading ? "Publicando..." : "Publicar reseña"}
@@ -306,7 +306,6 @@ export default function CreateReviewScreen() {
   );
 }
 
-/* 🎨 Estilos */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.white },
   keyboardView: { flex: 1 },
@@ -355,9 +354,15 @@ const styles = StyleSheet.create({
     textAlign: "right",
     marginTop: 8,
   },
-  imagesContainer: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  imagesContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    width: "100%",
+  },
   addImageButton: {
-    width: 100,
+    flex: 1,
+    minWidth: 100,
     height: 100,
     borderRadius: 12,
     borderWidth: 2,
