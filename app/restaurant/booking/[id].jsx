@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -22,12 +21,12 @@ import { typography } from "../../../config/typography";
 import { useSession } from "../../../context/SessionContext";
 import axiosPrivate from "../../../services/axiosPrivate";
 
-const GUEST_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
+const GUEST_OPTIONS = [1, 2, 3, 4, 5, 6, 7];
 
 const DURATION_OPTIONS = [
   { value: 30, label: "30 min" },
   { value: 60, label: "1 hora" },
-  { value: 90, label: "1.5 horas" },
+  { value: 90, label: "1h 30 min" },
   { value: 120, label: "2 horas" },
 ];
 
@@ -35,6 +34,7 @@ const OCCASION_ICONS = {
   Cumpleaños: "gift",
   Aniversario: "heart",
   "Cita Romántica": "wine",
+  "De Cita romantica": "wine",
   "Reunión de Negocios": "briefcase",
   "Cena Familiar": "home",
   Celebración: "star",
@@ -61,6 +61,8 @@ export default function BookingScreen() {
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [selectedTable, setSelectedTable] = useState(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
+
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   useEffect(() => {
     loadRestaurantData();
@@ -94,9 +96,7 @@ export default function BookingScreen() {
         const defaultOccasions = [
           { id: 1, name: "Cumpleaños" },
           { id: 2, name: "Aniversario" },
-          { id: 3, name: "Cita Romántica" },
-          { id: 4, name: "Reunión de Negocios" },
-          { id: 5, name: "Cena Familiar" },
+          { id: 3, name: "De Cita romantica" },
         ];
         setOccasionTypes(defaultOccasions);
         setSelectedOccasion(1);
@@ -144,10 +144,38 @@ export default function BookingScreen() {
     return date.toLocaleDateString("es-ES", options);
   };
 
-  const handleDateChange = (days) => {
-    const newDate = new Date(selectedDate);
-    newDate.setDate(newDate.getDate() + days);
+  const handleMonthChange = (direction) => {
+    const newMonth = new Date(currentMonth);
+    newMonth.setMonth(newMonth.getMonth() + direction);
+    setCurrentMonth(newMonth);
+  };
+
+  const getMonthData = () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDayOfWeek = firstDay.getDay();
+
+    return { daysInMonth, startDayOfWeek, year, month };
+  };
+
+  const handleDateSelect = (day) => {
+    const newDate = new Date(
+      currentMonth.getFullYear(),
+      currentMonth.getMonth(),
+      day
+    );
     setSelectedDate(newDate);
+  };
+
+  const isSameDay = (date1, date2) => {
+    return (
+      date1.getDate() === date2.getDate() &&
+      date1.getMonth() === date2.getMonth() &&
+      date1.getFullYear() === date2.getFullYear()
+    );
   };
 
   const handleSlotSelect = (slot) => {
@@ -202,7 +230,6 @@ export default function BookingScreen() {
         reservationData
       );
 
-      // Navegar a la pantalla de confirmación con los datos de la reserva
       router.replace({
         pathname: "/restaurant/booking/confirmation",
         params: {
@@ -261,6 +288,12 @@ export default function BookingScreen() {
     );
   }
 
+  const { daysInMonth, startDayOfWeek, year, month } = getMonthData();
+  const monthName = new Date(year, month).toLocaleDateString("es-ES", {
+    month: "long",
+    year: "numeric",
+  });
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
@@ -276,30 +309,36 @@ export default function BookingScreen() {
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
           <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Reservar Mesa</Text>
+            <Text style={styles.headerTitle}>Reservar mesa</Text>
             <Text style={styles.headerSubtitle}>{restaurant?.name}</Text>
           </View>
         </View>
 
-        <ScrollView style={styles.scrollView}>
-          {/* Selector de Fecha */}
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Título de sección */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Fecha</Text>
-            <View style={styles.dateSelector}>
+            <Text style={styles.mainSectionTitle}>Escoge la fecha y hora</Text>
+          </View>
+
+          {/* Calendario */}
+          <View style={styles.section}>
+            <View style={styles.calendarHeader}>
               <TouchableOpacity
-                style={styles.dateArrow}
-                onPress={() => handleDateChange(-1)}
+                style={styles.monthArrow}
+                onPress={() => handleMonthChange(-1)}
               >
                 <Ionicons name="chevron-back" size={24} color={colors.text} />
               </TouchableOpacity>
-              <View style={styles.dateDisplay}>
-                <Text style={styles.dateText}>
-                  {formatDateForDisplay(selectedDate)}
-                </Text>
-              </View>
+              <Text style={styles.monthText}>
+                {monthName.charAt(0).toUpperCase() + monthName.slice(1)}
+              </Text>
               <TouchableOpacity
-                style={styles.dateArrow}
-                onPress={() => handleDateChange(1)}
+                style={styles.monthArrow}
+                onPress={() => handleMonthChange(1)}
               >
                 <Ionicons
                   name="chevron-forward"
@@ -308,46 +347,56 @@ export default function BookingScreen() {
                 />
               </TouchableOpacity>
             </View>
-          </View>
 
-          {/* Número de Personas */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Número de personas</Text>
-            <FlatList
-              data={GUEST_OPTIONS}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={(item) => item.toString()}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.guestOption,
-                    numberOfGuests === item && styles.guestOptionActive,
-                  ]}
-                  onPress={() => setNumberOfGuests(item)}
-                >
-                  <Ionicons
-                    name="person"
-                    size={18}
-                    color={numberOfGuests === item ? colors.white : colors.text}
-                  />
-                  <Text
-                    style={[
-                      styles.guestOptionText,
-                      numberOfGuests === item && styles.guestOptionTextActive,
-                    ]}
-                  >
-                    {item}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              contentContainerStyle={styles.guestsContainer}
-            />
+            <View style={styles.calendar}>
+              <View style={styles.weekDays}>
+                {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map(
+                  (day) => (
+                    <Text key={day} style={styles.weekDayText}>
+                      {day}
+                    </Text>
+                  )
+                )}
+              </View>
+
+              <View style={styles.daysGrid}>
+                {Array.from({ length: startDayOfWeek }).map((_, index) => (
+                  <View key={`empty-${index}`} style={styles.dayCell} />
+                ))}
+                {Array.from({ length: daysInMonth }).map((_, index) => {
+                  const day = index + 1;
+                  const dayDate = new Date(year, month, day);
+                  const isSelected = isSameDay(dayDate, selectedDate);
+                  const isPast = dayDate < new Date().setHours(0, 0, 0, 0);
+
+                  return (
+                    <TouchableOpacity
+                      key={day}
+                      style={[
+                        styles.dayCell,
+                        isSelected && styles.dayCellSelected,
+                      ]}
+                      onPress={() => !isPast && handleDateSelect(day)}
+                      disabled={isPast}
+                    >
+                      <Text
+                        style={[
+                          styles.dayText,
+                          isSelected && styles.dayTextSelected,
+                          isPast && styles.dayTextDisabled,
+                        ]}
+                      >
+                        {day}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
           </View>
 
           {/* Horarios Disponibles */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Horarios disponibles</Text>
             {loadingSlots ? (
               <View style={styles.slotsLoading}>
                 <ActivityIndicator size="small" color={colors.primary} />
@@ -357,20 +406,16 @@ export default function BookingScreen() {
               </View>
             ) : availableSlots.length === 0 ? (
               <View style={styles.noSlotsContainer}>
-                <Ionicons
-                  name="calendar-outline"
-                  size={48}
-                  color={colors.gray}
-                />
                 <Text style={styles.noSlotsText}>
                   No hay horarios disponibles
                 </Text>
-                <Text style={styles.noSlotsSubtext}>
-                  Intenta con otra fecha o número de personas
-                </Text>
               </View>
             ) : (
-              <View style={styles.slotsGrid}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.timeSlotsContainer}
+              >
                 {availableSlots.map((slot, index) => {
                   const availableTables = getAvailableTablesForSlot(slot);
                   const isDisabled =
@@ -380,85 +425,78 @@ export default function BookingScreen() {
                     <TouchableOpacity
                       key={index}
                       style={[
-                        styles.slotCard,
+                        styles.timeSlot,
                         selectedSlot?.time === slot.time &&
-                          styles.slotCardActive,
-                        isDisabled && styles.slotCardDisabled,
+                          styles.timeSlotSelected,
+                        isDisabled && styles.timeSlotDisabled,
                       ]}
                       onPress={() => !isDisabled && handleSlotSelect(slot)}
                       disabled={isDisabled}
                     >
                       <Text
                         style={[
-                          styles.slotTime,
+                          styles.timeSlotText,
                           selectedSlot?.time === slot.time &&
-                            styles.slotTimeActive,
-                          isDisabled && styles.slotTimeDisabled,
+                            styles.timeSlotTextSelected,
+                          isDisabled && styles.timeSlotTextDisabled,
                         ]}
                       >
                         {slot.time}
                       </Text>
-                      <Text
-                        style={[
-                          styles.slotTables,
-                          selectedSlot?.time === slot.time &&
-                            styles.slotTablesActive,
-                          isDisabled && styles.slotTablesDisabled,
-                        ]}
-                      >
-                        {availableTables.length} mesas
-                      </Text>
                     </TouchableOpacity>
                   );
                 })}
-              </View>
+              </ScrollView>
             )}
           </View>
 
-          {/* Info de Mesa Seleccionada */}
-          {selectedTable && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Mesa seleccionada</Text>
-              <View style={styles.tableInfo}>
-                <View style={styles.tableInfoRow}>
-                  <Ionicons name="restaurant" size={20} color={colors.text} />
-                  <Text style={styles.tableInfoText}>
-                    Mesa #{selectedTable.table_number}
+          {/* Número de invitados */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Numero de invitados</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.guestsContainer}
+            >
+              {GUEST_OPTIONS.map((item) => (
+                <TouchableOpacity
+                  key={item}
+                  style={[
+                    styles.guestOption,
+                    numberOfGuests === item && styles.guestOptionActive,
+                  ]}
+                  onPress={() => setNumberOfGuests(item)}
+                >
+                  <Text
+                    style={[
+                      styles.guestOptionText,
+                      numberOfGuests === item && styles.guestOptionTextActive,
+                    ]}
+                  >
+                    {item}
                   </Text>
-                </View>
-                <View style={styles.tableInfoRow}>
-                  <Ionicons name="people" size={20} color={colors.text} />
-                  <Text style={styles.tableInfoText}>
-                    Capacidad: {selectedTable.capacity} personas
-                  </Text>
-                </View>
-              </View>
-            </View>
-          )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
 
           {/* Tipo de Ocasión */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Tipo de ocasión</Text>
-            <FlatList
-              data={occasionTypes}
+            <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={({ item }) => (
+              contentContainerStyle={styles.occasionsContainer}
+            >
+              {occasionTypes.map((item) => (
                 <TouchableOpacity
+                  key={item.id}
                   style={[
                     styles.occasionChip,
                     selectedOccasion === item.id && styles.occasionChipActive,
                   ]}
                   onPress={() => setSelectedOccasion(item.id)}
                 >
-                  <Ionicons
-                    name={OCCASION_ICONS[item.name] || "star"}
-                    size={16}
-                    color={
-                      selectedOccasion === item.id ? colors.white : colors.text
-                    }
-                  />
                   <Text
                     style={[
                       styles.occasionText,
@@ -468,21 +506,21 @@ export default function BookingScreen() {
                     {item.name}
                   </Text>
                 </TouchableOpacity>
-              )}
-              contentContainerStyle={styles.occasionsContainer}
-            />
+              ))}
+            </ScrollView>
           </View>
 
           {/* Duración */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Duración estimada</Text>
-            <FlatList
-              data={DURATION_OPTIONS}
+            <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              keyExtractor={(item) => item.value.toString()}
-              renderItem={({ item }) => (
+              contentContainerStyle={styles.durationContainer}
+            >
+              {DURATION_OPTIONS.map((item) => (
                 <TouchableOpacity
+                  key={item.value}
                   style={[
                     styles.durationChip,
                     selectedDuration === item.value &&
@@ -490,15 +528,6 @@ export default function BookingScreen() {
                   ]}
                   onPress={() => setSelectedDuration(item.value)}
                 >
-                  <Ionicons
-                    name="time"
-                    size={16}
-                    color={
-                      selectedDuration === item.value
-                        ? colors.white
-                        : colors.text
-                    }
-                  />
                   <Text
                     style={[
                       styles.durationText,
@@ -509,9 +538,8 @@ export default function BookingScreen() {
                     {item.label}
                   </Text>
                 </TouchableOpacity>
-              )}
-              contentContainerStyle={styles.durationContainer}
-            />
+              ))}
+            </ScrollView>
           </View>
 
           {/* Comentarios */}
@@ -530,14 +558,12 @@ export default function BookingScreen() {
               textAlignVertical="top"
             />
           </View>
-
-          <View style={{ height: 100 }} />
         </ScrollView>
 
         {/* Botón de Reservar */}
         <View style={styles.bottomContainer}>
           <CustomButton
-            text={submitting ? "Procesando..." : "Confirmar Reserva"}
+            text={submitting ? "Procesando..." : "Confirmar reserva"}
             onPress={handleSubmitReservation}
             disabled={!selectedSlot || !selectedTable || submitting}
             fullWidth
@@ -569,10 +595,9 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.lightGray,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: colors.white,
   },
   backButton: {
     width: 40,
@@ -587,18 +612,29 @@ const styles = StyleSheet.create({
   headerTitle: {
     ...typography.bold.large,
     color: colors.text,
+    fontSize: 20,
   },
   headerSubtitle: {
     ...typography.regular.regular,
     color: colors.textSec,
     marginTop: 2,
+    fontSize: 14,
   },
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 120,
+  },
   section: {
-    paddingHorizontal: 16,
-    paddingTop: 24,
+    paddingHorizontal: 20,
+    marginTop: 24,
+  },
+  mainSectionTitle: {
+    ...typography.bold.large,
+    color: colors.text,
+    fontSize: 18,
+    marginBottom: 8,
   },
   sectionTitle: {
     ...typography.bold.medium,
@@ -606,183 +642,191 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     fontSize: 16,
   },
-  dateSelector: {
+  calendarHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: colors.base,
-    borderRadius: 16,
-    padding: 16,
+    marginBottom: 20,
   },
-  dateArrow: {
+  monthArrow: {
     padding: 8,
   },
-  dateDisplay: {
-    flex: 1,
-    alignItems: "center",
-  },
-  dateText: {
+  monthText: {
     ...typography.semibold.medium,
     color: colors.text,
-    textAlign: "center",
+    fontSize: 16,
+    textTransform: "capitalize",
   },
-  guestsContainer: {
+  calendar: {
+    paddingBottom: 0,
+  },
+  weekDays: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: 12,
+  },
+  weekDayText: {
+    ...typography.regular.small,
+    color: colors.textSec,
+    fontSize: 11,
+    width: 40,
+    textAlign: "center",
+    textTransform: "uppercase",
+  },
+  daysGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  dayCell: {
+    width: "14.28%",
+    height: 40, // en lugar de aspectRatio: 1
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+
+  dayCellSelected: {
+    backgroundColor: colors.primary,
+    borderRadius: 50,
+  },
+  dayText: {
+    ...typography.regular.medium,
+    color: colors.text,
+    fontSize: 15,
+  },
+  dayTextSelected: {
+    ...typography.bold.medium,
+    color: colors.white,
+  },
+  dayTextDisabled: {
+    color: colors.lightGray,
+  },
+  timeSlotsContainer: {
+    paddingRight: 20,
     gap: 12,
   },
-  guestOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 20,
+  timeSlot: {
+    paddingHorizontal: 24,
     paddingVertical: 12,
     backgroundColor: colors.base,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "transparent",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.lightGray,
+  },
+  timeSlotSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  timeSlotDisabled: {
+    opacity: 0.4,
+  },
+  timeSlotText: {
+    ...typography.regular.medium,
+    color: colors.text,
+    fontSize: 14,
+  },
+  timeSlotTextSelected: {
+    ...typography.semibold.medium,
+    color: colors.white,
+  },
+  timeSlotTextDisabled: {
+    color: colors.textSec,
+  },
+  slotsLoading: {
+    paddingVertical: 24,
+    alignItems: "center",
+  },
+  slotsLoadingText: {
+    ...typography.regular.medium,
+    color: colors.textSec,
+    marginTop: 12,
+    fontSize: 14,
+  },
+  noSlotsContainer: {
+    alignItems: "center",
+    paddingVertical: 24,
+  },
+  noSlotsText: {
+    ...typography.regular.medium,
+    color: colors.textSec,
+    textAlign: "center",
+    fontSize: 14,
+  },
+  guestsContainer: {
+    paddingRight: 20,
+    gap: 10,
+  },
+  guestOption: {
+    width: 48,
+    height: 48,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: colors.base,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.lightGray,
   },
   guestOptionActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
   guestOptionText: {
-    ...typography.semibold.medium,
+    ...typography.regular.medium,
     color: colors.text,
+    fontSize: 16,
   },
   guestOptionTextActive: {
-    color: colors.white,
-  },
-  slotsLoading: {
-    paddingVertical: 40,
-    alignItems: "center",
-  },
-  slotsLoadingText: {
-    ...typography.regular.medium,
-    color: colors.textSec,
-    marginTop: 8,
-  },
-  noSlotsContainer: {
-    alignItems: "center",
-    paddingVertical: 40,
-  },
-  noSlotsText: {
-    ...typography.bold.medium,
-    color: colors.text,
-    marginTop: 16,
-    textAlign: "center",
-  },
-  noSlotsSubtext: {
-    ...typography.regular.regular,
-    color: colors.textSec,
-    marginTop: 8,
-    textAlign: "center",
-  },
-  slotsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  slotCard: {
-    width: "30%",
-    aspectRatio: 1,
-    backgroundColor: colors.base,
-    borderRadius: 12,
-    padding: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  slotCardActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  slotCardDisabled: {
-    opacity: 0.4,
-  },
-  slotTime: {
-    ...typography.bold.medium,
-    color: colors.text,
-  },
-  slotTimeActive: {
-    color: colors.white,
-  },
-  slotTimeDisabled: {
-    color: colors.textSec,
-  },
-  slotTables: {
-    ...typography.regular.small,
-    color: colors.textSec,
-  },
-  slotTablesActive: {
-    color: colors.white,
-  },
-  slotTablesDisabled: {
-    color: colors.lightGray,
-  },
-  tableInfo: {
-    backgroundColor: colors.base,
-    borderRadius: 12,
-    padding: 16,
-    gap: 12,
-  },
-  tableInfoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  tableInfoText: {
     ...typography.semibold.medium,
-    color: colors.text,
+    color: colors.white,
   },
   occasionsContainer: {
-    gap: 12,
+    paddingRight: 20,
+    gap: 10,
   },
   occasionChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 10,
     backgroundColor: colors.base,
     borderRadius: 20,
-    borderWidth: 2,
-    borderColor: "transparent",
+    borderWidth: 1,
+    borderColor: colors.lightGray,
   },
   occasionChipActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
   occasionText: {
-    ...typography.medium.regular,
+    ...typography.regular.medium,
     color: colors.text,
+    fontSize: 14,
   },
   occasionTextActive: {
+    ...typography.semibold.medium,
     color: colors.white,
   },
   durationContainer: {
-    gap: 12,
+    paddingRight: 20,
+    gap: 10,
   },
   durationChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 10,
     backgroundColor: colors.base,
     borderRadius: 20,
-    borderWidth: 2,
-    borderColor: "transparent",
+    borderWidth: 1,
+    borderColor: colors.lightGray,
   },
   durationChipActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
   durationText: {
-    ...typography.medium.regular,
+    ...typography.regular.medium,
     color: colors.text,
+    fontSize: 14,
   },
   durationTextActive: {
+    ...typography.semibold.medium,
     color: colors.white,
   },
   commentsInput: {
@@ -792,6 +836,9 @@ const styles = StyleSheet.create({
     ...typography.regular.medium,
     color: colors.text,
     minHeight: 100,
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: colors.lightGray,
   },
   bottomContainer: {
     position: "absolute",
@@ -799,14 +846,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: colors.white,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 16,
+    paddingBottom: Platform.OS === "ios" ? 32 : 16,
     borderTopWidth: 1,
     borderTopColor: colors.lightGray,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 5,
+    elevation: 8,
   },
 });
