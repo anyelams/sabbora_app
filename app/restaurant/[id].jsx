@@ -221,49 +221,20 @@ export default function RestaurantDetailScreen() {
         <View style={styles.aboutSection}>
           <Text style={styles.aboutSectionTitle}>Horarios</Text>
 
-          <View style={styles.schedulesList}>
-            {restaurant?.schedules && restaurant.schedules.length > 0 ? (
-              restaurant.schedules.map((schedule, index) => (
-                <View key={index} style={styles.scheduleItem}>
-                  <Text style={styles.scheduleDay}>{schedule.day}</Text>
-                  <Text style={styles.scheduleHours}>
-                    {schedule.open_time} - {schedule.close_time}
-                  </Text>
-                </View>
-              ))
-            ) : (
-              <>
-                <View style={styles.scheduleItem}>
-                  <Text style={styles.scheduleDay}>Lunes</Text>
-                  <Text style={styles.scheduleHours}>10:00 - 22:00</Text>
-                </View>
-                <View style={styles.scheduleItem}>
-                  <Text style={styles.scheduleDay}>Martes</Text>
-                  <Text style={styles.scheduleHours}>10:00 - 22:00</Text>
-                </View>
-                <View style={styles.scheduleItem}>
-                  <Text style={styles.scheduleDay}>Miércoles</Text>
-                  <Text style={styles.scheduleHours}>10:00 - 22:00</Text>
-                </View>
-                <View style={styles.scheduleItem}>
-                  <Text style={styles.scheduleDay}>Jueves</Text>
-                  <Text style={styles.scheduleHours}>10:00 - 22:00</Text>
-                </View>
-                <View style={styles.scheduleItem}>
-                  <Text style={styles.scheduleDay}>Viernes</Text>
-                  <Text style={styles.scheduleHours}>10:00 - 22:00</Text>
-                </View>
-                <View style={styles.scheduleItem}>
-                  <Text style={styles.scheduleDay}>Sábado</Text>
-                  <Text style={styles.scheduleHours}>10:00 - 20:00</Text>
-                </View>
-                <View style={styles.scheduleItem}>
-                  <Text style={styles.scheduleDay}>Domingo</Text>
-                  <Text style={styles.scheduleHours}>12:00 - 20:00</Text>
-                </View>
-              </>
-            )}
-          </View>
+          {restaurant?.schedules && restaurant.schedules.length > 0 ? (
+            restaurant.schedules.map((schedule, index) => (
+              <View key={index} style={styles.scheduleItem}>
+                <Text style={styles.scheduleDay}>{schedule.day}</Text>
+                <Text style={styles.scheduleHours}>
+                  {schedule.open_time} - {schedule.close_time}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <View style={styles.scheduleItem}>
+              <Text style={styles.scheduleDay}>Horario no disponible</Text>
+            </View>
+          )}
         </View>
       </View>
     );
@@ -1083,7 +1054,7 @@ const styles = StyleSheet.create({
   },
   scheduleDay: {
     ...typography.regular.medium,
-    color: colors.text,
+    color: colors.textSec,
   },
   scheduleDayToday: {
     ...typography.semibold.medium,
