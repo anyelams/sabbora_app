@@ -44,6 +44,8 @@ export default function RestaurantDetailScreen() {
   const [reviewsSummary, setReviewsSummary] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsSortOrder, setReviewsSortOrder] = useState("desc");
+  const [isLoadingSort, setIsLoadingSort] = useState(false);
 
   // Estados para menú
   const [menus, setMenus] = useState([]);
@@ -68,7 +70,7 @@ export default function RestaurantDetailScreen() {
 
   useEffect(() => {
     if (activeTab === "Reseñas") {
-      loadReviews();
+      loadReviews(reviewsSortOrder);
     } else if (activeTab === "Menu") {
       loadMenu();
     }
@@ -92,19 +94,28 @@ export default function RestaurantDetailScreen() {
     }
   };
 
-  const loadReviews = async () => {
+  const loadReviews = async (sortOrder = "desc") => {
     try {
-      setReviewsLoading(true);
+      setIsLoadingSort(true);
       const [summaryRes, reviewsRes] = await Promise.all([
         axiosPrivate.get(`/review/reviews/location/${id}/summary`),
-        axiosPrivate.get(`/review/reviews/location/${id}?limit=10&offset=0`),
+        axiosPrivate.get(
+          `/review/reviews/location/${id}?limit=10&offset=0&sort_by=id&sort_order=${sortOrder}`
+        ),
       ]);
       setReviewsSummary(summaryRes.data);
       setReviews(reviewsRes.data.data);
+      setReviewsSortOrder(sortOrder);
     } catch (error) {
       console.error("Error cargando reseñas:", error);
     } finally {
-      setReviewsLoading(false);
+      setIsLoadingSort(false);
+    }
+  };
+
+  const handleSortChange = (order) => {
+    if (reviewsSortOrder !== order) {
+      loadReviews(order);
     }
   };
 
@@ -345,6 +356,26 @@ export default function RestaurantDetailScreen() {
     const avgRating = reviewsSummary?.average_rating || 0;
     const totalReviews = reviews?.length || 0;
 
+    const getUserName = (user) => {
+      if (!user) return "Usuario";
+      const firstName = user.first_name || "";
+      const lastName = user.first_last_name || "";
+      return `${firstName} ${lastName}`.trim() || "Usuario";
+    };
+
+    const getUserInitials = (user) => {
+      if (!user) return "U";
+      const firstName = user.first_name || "";
+      const lastName = user.first_last_name || "";
+      if (firstName && lastName) {
+        return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+      }
+      if (firstName) {
+        return firstName.substring(0, 2).toUpperCase();
+      }
+      return "U";
+    };
+
     return (
       <View style={styles.tabContent}>
         {reviewsLoading ? (
@@ -366,7 +397,6 @@ export default function RestaurantDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Rating Summary - Siempre visible */}
             <View style={styles.ratingSection}>
               <View style={styles.ratingLeft}>
                 <Text
@@ -448,102 +478,150 @@ export default function RestaurantDetailScreen() {
                 </View>
 
                 <View style={styles.filterButtons}>
-                  <TouchableOpacity style={styles.filterButtonActive}>
+                  <TouchableOpacity
+                    style={[
+                      reviewsSortOrder === "desc"
+                        ? styles.filterButtonActive
+                        : styles.filterButton,
+                    ]}
+                    onPress={() => handleSortChange("desc")}
+                    disabled={isLoadingSort}
+                  >
                     <Ionicons
                       name="calendar-outline"
                       size={16}
-                      color={colors.white}
+                      color={
+                        reviewsSortOrder === "desc"
+                          ? colors.white
+                          : colors.primary
+                      }
                     />
-                    <Text style={styles.filterButtonActiveText}>
+                    <Text
+                      style={
+                        reviewsSortOrder === "desc"
+                          ? styles.filterButtonActiveText
+                          : styles.filterButtonText
+                      }
+                    >
                       Más recientes
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.filterButton}>
+
+                  <TouchableOpacity
+                    style={[
+                      reviewsSortOrder === "asc"
+                        ? styles.filterButtonActive
+                        : styles.filterButton,
+                    ]}
+                    onPress={() => handleSortChange("asc")}
+                    disabled={isLoadingSort}
+                  >
                     <Ionicons
                       name="calendar-outline"
                       size={16}
-                      color={colors.primary}
+                      color={
+                        reviewsSortOrder === "asc"
+                          ? colors.white
+                          : colors.primary
+                      }
                     />
-                    <Text style={styles.filterButtonText}>Más antiguas</Text>
+                    <Text
+                      style={
+                        reviewsSortOrder === "asc"
+                          ? styles.filterButtonActiveText
+                          : styles.filterButtonText
+                      }
+                    >
+                      Más antiguas
+                    </Text>
                   </TouchableOpacity>
                 </View>
 
-                {reviews.map((review) => (
-                  <View key={review.id} style={styles.reviewCard}>
-                    <View style={styles.reviewHeader}>
-                      <View style={styles.reviewAvatar}>
-                        <Text style={styles.reviewAvatarText}>
-                          {review.user_name
-                            ? review.user_name.charAt(0).toUpperCase()
-                            : "U"}
-                        </Text>
-                      </View>
-                      <View style={styles.reviewHeaderInfo}>
-                        <Text style={styles.reviewUserName}>
-                          {review.user_name || "Usuario"}
-                        </Text>
-                        <View style={styles.reviewRatingRow}>
-                          {[1, 2, 3, 4, 5].map((star) => {
-                            const diff = review.rating - (star - 1);
-                            let iconName = "star-outline";
-                            if (diff >= 1) {
-                              iconName = "star";
-                            } else if (diff >= 0.25) {
-                              iconName = "star-half";
-                            }
-                            return (
-                              <Ionicons
-                                key={star}
-                                name={iconName}
-                                size={14}
-                                color="#FFC107"
-                              />
-                            );
-                          })}
-                          <Text style={styles.reviewRating}>
-                            {review.rating.toFixed(1)}
-                          </Text>
-                          <Text style={styles.reviewDate}>
-                            • {new Date(review.created_at).toLocaleDateString()}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-
-                    {review.review_text && (
-                      <Text style={styles.reviewText}>
-                        {review.review_text}
-                      </Text>
-                    )}
-
-                    {review.photos && review.photos.length > 0 && (
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        style={[
-                          styles.reviewPhotosScroll,
-                          !review.review_text && { marginTop: 0 },
-                        ]}
-                      >
-                        {review.photos.map((photo, photoIndex) => (
-                          <TouchableOpacity
-                            key={photo.id}
-                            onPress={() => {
-                              setPreviewPhotos(review.photos);
-                              setPreviewImageIndex(photoIndex);
-                              setPreviewVisible(true);
-                            }}
-                          >
-                            <Image
-                              source={{ uri: photo.photo_url }}
-                              style={styles.reviewPhoto}
-                            />
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    )}
+                {isLoadingSort ? (
+                  <View style={styles.sortLoadingContainer}>
+                    <ActivityIndicator size="small" color={colors.primary} />
                   </View>
-                ))}
+                ) : (
+                  <>
+                    {reviews.map((review) => (
+                      <View key={review.id} style={styles.reviewCard}>
+                        <View style={styles.reviewHeader}>
+                          <View style={styles.reviewAvatar}>
+                            <Text style={styles.reviewAvatarText}>
+                              {getUserInitials(review.user)}
+                            </Text>
+                          </View>
+                          <View style={styles.reviewHeaderInfo}>
+                            <Text style={styles.reviewUserName}>
+                              {getUserName(review.user)}
+                            </Text>
+                            <View style={styles.reviewRatingRow}>
+                              {[1, 2, 3, 4, 5].map((star) => {
+                                const diff = review.rating - (star - 1);
+                                let iconName = "star-outline";
+                                if (diff >= 1) {
+                                  iconName = "star";
+                                } else if (diff >= 0.25) {
+                                  iconName = "star-half";
+                                }
+                                return (
+                                  <Ionicons
+                                    key={star}
+                                    name={iconName}
+                                    size={14}
+                                    color="#FFC107"
+                                  />
+                                );
+                              })}
+                              <Text style={styles.reviewRating}>
+                                {review.rating.toFixed(1)}
+                              </Text>
+                              <Text style={styles.reviewDate}>
+                                •{" "}
+                                {new Date(
+                                  review.created_at
+                                ).toLocaleDateString()}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+
+                        {review.review_text && (
+                          <Text style={styles.reviewText}>
+                            {review.review_text}
+                          </Text>
+                        )}
+
+                        {review.photos && review.photos.length > 0 && (
+                          <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            style={[
+                              styles.reviewPhotosScroll,
+                              !review.review_text && { marginTop: 0 },
+                            ]}
+                          >
+                            {review.photos.map((photo, photoIndex) => (
+                              <TouchableOpacity
+                                key={photo.id}
+                                onPress={() => {
+                                  setPreviewPhotos(review.photos);
+                                  setPreviewImageIndex(photoIndex);
+                                  setPreviewVisible(true);
+                                }}
+                              >
+                                <Image
+                                  source={{ uri: photo.photo_url }}
+                                  style={styles.reviewPhoto}
+                                />
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
+                        )}
+                      </View>
+                    ))}
+                  </>
+                )}
               </>
             )}
           </>
@@ -551,16 +629,6 @@ export default function RestaurantDetailScreen() {
       </View>
     );
   };
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   if (!restaurant) {
     return (
@@ -1373,6 +1441,10 @@ const styles = StyleSheet.create({
     ...typography.regular.small,
     color: colors.white,
   },
+  sortLoadingContainer: {
+    paddingVertical: 20,
+    alignItems: "center",
+  },
   reviewCard: {
     marginBottom: 24,
     paddingBottom: 16,
@@ -1392,7 +1464,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   reviewAvatarText: {
-    ...typography.bold.medium,
+    ...typography.bold.regular,
     color: colors.textSec,
   },
   reviewHeaderInfo: {
@@ -1400,7 +1472,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   reviewUserName: {
-    ...typography.semibold.medium,
+    ...typography.semibold.small,
     color: colors.text,
     marginBottom: 4,
   },
