@@ -304,7 +304,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     ...typography.semibold.big,
-    fontSize: 28,
     color: colors.darkGray,
   },
   loadingContainer: {
@@ -356,7 +355,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
+    paddingVertical: 9,
     paddingHorizontal: 16,
     borderRadius: 12,
     backgroundColor: colors.base,
