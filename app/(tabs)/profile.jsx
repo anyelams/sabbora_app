@@ -218,9 +218,22 @@ const Profile = () => {
           />
         </TouchableOpacity>
 
-        {/* Opción para cambiar contraseña */}
+        {/* Opción para editar perfil */}
         <TouchableOpacity
           style={styles.optionRow}
+          onPress={() => router.push("/profile/editProfile")}
+        >
+          <Text style={styles.optionText}>Actualizar información</Text>
+          <MaterialCommunityIcons
+            name="chevron-right"
+            size={20}
+            color={colors.textSec || colors.gray}
+          />
+        </TouchableOpacity>
+
+        {/* Opción para cambiar contraseña */}
+        <TouchableOpacity
+          style={[styles.optionRow, { marginTop: 12 }]}
           onPress={() => router.push("/profile/changePassword")}
         >
           <Text style={styles.optionText}>Cambiar contraseña</Text>
@@ -327,7 +340,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   optionText: {
     ...typography.medium?.large,
