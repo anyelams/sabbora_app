@@ -46,6 +46,12 @@ export default function RestaurantCard({
     }
   };
 
+  // Solo mostrar los location_types
+  const getTypeText = () => {
+    const types = restaurant.location_types?.map((t) => t.name) || [];
+    return types.length > 0 ? types.join(" • ") : "Restaurante";
+  };
+
   if (variant === "list") {
     return (
       <TouchableOpacity
@@ -62,6 +68,8 @@ export default function RestaurantCard({
           <Text style={styles.listCardName} numberOfLines={1}>
             {restaurant.name}
           </Text>
+
+          {/* Rating y reviews */}
           <View style={styles.cardMeta}>
             <Ionicons name="star" size={12} color={colors.primary} />
             <Text style={styles.ratingText}>
@@ -73,15 +81,18 @@ export default function RestaurantCard({
                 <Text style={styles.reviewsText}>({totalReviews})</Text>
               </>
             )}
-            <Text style={styles.metaDot}>•</Text>
-            <Text style={styles.categoryText}>
-              {restaurant.location_types?.[0]?.name || "Restaurante"}
-            </Text>
           </View>
+
+          {/* Tipos de comida en línea separada, con estilo de lista */}
+          <Text style={styles.listCategoryText} numberOfLines={1}>
+            {getTypeText()}
+          </Text>
+
           <Text style={styles.addressText} numberOfLines={1}>
             {getFullAddress()}
           </Text>
         </View>
+
         <View style={styles.listCardRight}>
           {restaurant.distanceFormatted && (
             <View style={styles.distanceLabel}>
@@ -146,9 +157,7 @@ export default function RestaurantCard({
             </>
           )}
           <Text style={styles.metaDot}>•</Text>
-          <Text style={styles.categoryText}>
-            {restaurant.location_types?.[0]?.name || "Restaurante"}
-          </Text>
+          <Text style={styles.categoryText}>{getTypeText()}</Text>
         </View>
         <Text style={styles.addressText} numberOfLines={1}>
           {getFullAddress()}
@@ -275,6 +284,11 @@ const styles = StyleSheet.create({
   listCardRight: {
     alignItems: "flex-end",
     gap: 8,
+  },
+  listCategoryText: {
+    ...typography.regular.small,
+    color: colors.textSec,
+    marginBottom: 3,
   },
   distanceLabel: {
     flexDirection: "row",
