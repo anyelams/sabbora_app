@@ -126,7 +126,7 @@ const ReservaDetalle = () => {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={colors.darkGray} />
+          <Ionicons name="chevron-back" size={23} color={colors.darkGray} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Detalles de Reserva</Text>
         <View style={{ width: 24 }} />
