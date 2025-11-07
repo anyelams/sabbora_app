@@ -172,6 +172,38 @@ export default function NotificationsScreen() {
     ]
   );
 
+  const renderFooter = useCallback(() => {
+    if (isLoadingMore) {
+      return (
+        <View style={styles.footerLoader}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={styles.loadingMoreText}>Cargando más...</Text>
+        </View>
+      );
+    }
+
+    if (hasNextPage) {
+      return (
+        <View style={styles.loadMoreContainer}>
+          <View style={styles.dividerContainer}>
+            <View style={styles.divider} />
+            <TouchableOpacity
+              style={styles.loadMoreButton}
+              onPress={loadMore}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.loadMoreText}>Ver más notificaciones</Text>
+              <Ionicons name="chevron-down" size={20} color={colors.primary} />
+            </TouchableOpacity>
+            <View style={styles.divider} />
+          </View>
+        </View>
+      );
+    }
+
+    return null;
+  }, [isLoadingMore, hasNextPage, loadMore]);
+
   useEffect(() => {
     if (userId) fetchNotifications(0, false);
   }, [userId, fetchNotifications]);
@@ -271,15 +303,7 @@ export default function NotificationsScreen() {
                   tintColor={colors.primary}
                 />
               }
-              onEndReached={loadMore}
-              onEndReachedThreshold={0.5}
-              ListFooterComponent={
-                isLoadingMore ? (
-                  <View style={styles.footerLoader}>
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  </View>
-                ) : null
-              }
+              ListFooterComponent={renderFooter}
             />
 
             {/* FAB flotante */}
@@ -382,9 +406,40 @@ const styles = StyleSheet.create({
     color: colors.textSec,
     textAlign: "center",
   },
+  loadMoreContainer: {
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+  },
+  dividerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.lightGray,
+  },
+  loadMoreButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  loadMoreText: {
+    ...typography.semibold.medium,
+    color: colors.primary,
+    fontSize: 14,
+  },
   footerLoader: {
     paddingVertical: 20,
     alignItems: "center",
+    gap: 8,
+  },
+  loadingMoreText: {
+    ...typography.regular.small,
+    color: colors.textSec,
   },
   fabButton: {
     position: "absolute",

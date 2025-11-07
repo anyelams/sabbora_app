@@ -13,9 +13,17 @@ import Animated, {
 import { colors } from "../config/theme";
 import { typography } from "../config/typography";
 
-// 🔧 Ajustes finos: umbral más bajo y animación física más natural
-const SWIPE_THRESHOLD = 45;
-const MAX_TRANSLATE = 100;
+const SWIPE_THRESHOLD = 60;
+const MAX_TRANSLATE = 120;
+
+const springConfig = {
+  damping: 20,
+  mass: 0.5,
+  stiffness: 180,
+  overshootClamping: false,
+  restDisplacementThreshold: 0.01,
+  restSpeedThreshold: 0.01,
+};
 
 export default function SwipeableNotificationItem({
   item,
@@ -30,58 +38,62 @@ export default function SwipeableNotificationItem({
 
   const handleMarkAsRead = () => {
     if (!isUnread) {
-      translateX.value = withSpring(0);
+      translateX.value = withSpring(0, springConfig);
       return;
     }
 
-    translateX.value = withTiming(-180, {
-      duration: 180,
-      easing: Easing.out(Easing.exp),
+    translateX.value = withTiming(-MAX_TRANSLATE, {
+      duration: 200,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
     });
-    opacity.value = withTiming(0, { duration: 180 });
+    opacity.value = withTiming(0, {
+      duration: 200,
+      easing: Easing.out(Easing.ease),
+    });
     setTimeout(() => {
       onMarkAsRead(item.id, item.notification.id, item.is_read);
       translateX.value = 0;
       opacity.value = 1;
-    }, 180);
+    }, 200);
   };
 
   const handleDelete = () => {
     itemHeight.value = withTiming(0, {
-      duration: 260,
-      easing: Easing.out(Easing.exp),
+      duration: 300,
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
     });
-    opacity.value = withTiming(0, { duration: 180 });
-    translateX.value = withTiming(180, { duration: 180 });
+    opacity.value = withTiming(0, {
+      duration: 250,
+      easing: Easing.out(Easing.ease),
+    });
+    translateX.value = withTiming(MAX_TRANSLATE, {
+      duration: 250,
+      easing: Easing.out(Easing.ease),
+    });
     setTimeout(() => {
       onDelete(item.id);
-    }, 260);
+    }, 300);
   };
 
   const panGesture = Gesture.Pan()
-    .activeOffsetX([-10, 10])
-    .failOffsetY([-15, 15])
+    .activeOffsetX([-5, 5])
+    .failOffsetY([-10, 10])
     .onUpdate((event) => {
-      if (Math.abs(event.translationX) > Math.abs(event.translationY)) {
-        if (event.translationX < 0) {
-          translateX.value = Math.max(event.translationX, -MAX_TRANSLATE);
-        } else {
-          translateX.value = Math.min(event.translationX, MAX_TRANSLATE);
-        }
-      }
+      translateX.value = Math.max(
+        Math.min(event.translationX, MAX_TRANSLATE),
+        -MAX_TRANSLATE
+      );
     })
     .onEnd((event) => {
-      if (event.translationX < -SWIPE_THRESHOLD) {
+      const velocity = event.velocityX;
+      const translation = event.translationX;
+
+      if (translation < -SWIPE_THRESHOLD || velocity < -500) {
         runOnJS(handleMarkAsRead)();
-      } else if (event.translationX > SWIPE_THRESHOLD) {
+      } else if (translation > SWIPE_THRESHOLD || velocity > 500) {
         runOnJS(handleDelete)();
       } else {
-        // rebote más fluido
-        translateX.value = withSpring(0, {
-          damping: 12,
-          mass: 0.8,
-          stiffness: 150,
-        });
+        translateX.value = withSpring(0, springConfig);
       }
     });
 
@@ -96,13 +108,15 @@ export default function SwipeableNotificationItem({
   }));
 
   const leftActionStyle = useAnimatedStyle(() => {
-    const progress = Math.min(-translateX.value / SWIPE_THRESHOLD, 1);
-    return { opacity: progress, transform: [{ scale: progress }] };
+    return {
+      opacity: translateX.value < 0 ? 1 : 0,
+    };
   });
 
   const rightActionStyle = useAnimatedStyle(() => {
-    const progress = Math.min(translateX.value / SWIPE_THRESHOLD, 1);
-    return { opacity: progress, transform: [{ scale: progress }] };
+    return {
+      opacity: translateX.value > 0 ? 1 : 0,
+    };
   });
 
   return (
@@ -168,20 +182,33 @@ export default function SwipeableNotificationItem({
 }
 
 const styles = StyleSheet.create({
-  container: { position: "relative" },
+  container: {
+    position: "relative",
+    backgroundColor: colors.white,
+  },
   leftAction: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#10B981",
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    right: 0,
+    left: 0,
+    backgroundColor: "#5dc670ff",
     justifyContent: "center",
     alignItems: "flex-end",
     paddingRight: 24,
+    zIndex: 1,
   },
   rightAction: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#EF4444",
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    right: 0,
+    left: 0,
+    backgroundColor: "#ed4c4cff",
     justifyContent: "center",
     alignItems: "flex-start",
     paddingLeft: 24,
+    zIndex: 1,
   },
   actionContent: {
     alignItems: "center",
@@ -199,6 +226,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.lightGray,
+    zIndex: 2,
   },
   unreadItem: { backgroundColor: "#F4F4F5" },
   iconContainer: {
